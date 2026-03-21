@@ -135,7 +135,7 @@ describe("Trader archetype scoring simulation", () => {
 
     // Print comparison table
     const pad = (s: string, n: number) => s.padEnd(n);
-    const fmt = (n: number) => (n / 1_000_000).toFixed(3).padStart(9);
+    const fmt = (n: number) => (n / 1_000_000)?.toFixed(3).padStart(9);
     console.log("\n" + "═".repeat(90));
     console.log(
       "  ARCHETYPE SCORING SIMULATION — CPS Components (in millions)",

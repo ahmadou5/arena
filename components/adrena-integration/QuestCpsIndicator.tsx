@@ -35,9 +35,9 @@ export default function QuestCpsIndicator({
   if (cps === null) return null;
 
   const fmt = (n: number) => {
-    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-    if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toFixed(0);
+    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
+    if (Math.abs(n) >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
+    return n?.toFixed(0);
   };
 
   if (variant === "badge") {

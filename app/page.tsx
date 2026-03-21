@@ -169,7 +169,7 @@ export default async function SeasonLobby() {
 
   const prizeFormatted =
     season.prizePoolUsdc >= 1000
-      ? `$${(season.prizePoolUsdc / 1000).toFixed(0)}K`
+      ? `$${(season.prizePoolUsdc / 1000)?.toFixed(0)}K`
       : `$${season.prizePoolUsdc}`;
 
   return (

@@ -45,9 +45,9 @@ const DIV_COLORS: Record<number, string> = {
 };
 
 function fmtCps(n: number) {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toFixed(0);
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
+  return n?.toFixed(0);
 }
 
 function shortWallet(w: string) {
@@ -200,7 +200,7 @@ function DivisionTable({
                               : "text-[#9b3d3d]"
                         }`}
                       >
-                        {((e.winRate ?? 0) * 100).toFixed(0)}%
+                        {((e.winRate ?? 0) * 100)?.toFixed(0)}%
                       </td>
                       <td
                         className={`py-3 px-4 font-mono text-xs ${isOwn ? "text-[#d3d3d3]" : "text-[#8a8880]"}`}
@@ -548,7 +548,7 @@ export default function LeaderboardClient({
                             <td
                               className={`py-2.5 px-4 font-mono text-xs ${!isOwn && ((e.winRate ?? 0) >= 0.5 ? "text-[#3d7a5c]" : "text-[#9b3d3d]")}`}
                             >
-                              {((e.winRate ?? 0) * 100).toFixed(0)}%
+                              {((e.winRate ?? 0) * 100)?.toFixed(0)}%
                             </td>
                             <td className="py-2.5 px-4 font-mono text-xs text-[#8a8880]">
                               {e.totalTrades}

@@ -177,15 +177,15 @@ export default function MyStatsCard({
           value={
             cs
               ? cs.totalCps >= 1_000_000
-                ? `${(cs.totalCps / 1_000_000).toFixed(2)}M`
-                : cs.totalCps.toFixed(0)
+                ? `${(cs.totalCps / 1_000_000)?.toFixed(2)}M`
+                : cs.totalCps?.toFixed(0)
               : "—"
           }
           sub="this season"
         />
         <StatBlock
           label="Win Rate"
-          value={cs ? `${(cs.winRate * 100).toFixed(0)}%` : "—"}
+          value={cs ? `${(cs.winRate * 100)?.toFixed(0)}%` : "—"}
           sub={cs ? `${cs.totalTrades} trades` : undefined}
           accent={
             cs && cs.winRate >= 0.5 ? "#3d7a5c" : cs ? "#9b3d3d" : undefined

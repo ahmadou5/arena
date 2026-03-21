@@ -21,9 +21,9 @@ export function showCpsToast(cps: number, gauntlet = false) {
 }
 
 function formatCps(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toFixed(0);
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
+  return n?.toFixed(0);
 }
 
 export default function TradeClosedToastContainer() {

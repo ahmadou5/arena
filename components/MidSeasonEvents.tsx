@@ -36,9 +36,9 @@ function shortWallet(w: string) {
   return `${w.slice(0, 4)}…${w.slice(-4)}`;
 }
 function fmtCps(n: number) {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toFixed(0);
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
+  return n?.toFixed(0);
 }
 
 // ── Countdown to Gauntlet end ─────────────────────────────────────────────────

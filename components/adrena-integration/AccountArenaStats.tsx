@@ -105,10 +105,10 @@ export default function AccountArenaStats({ wallet }: AccountArenaStatsProps) {
               </p>
               <p className="font-mono text-sm font-semibold text-[#2e3d47]">
                 {cs.totalCps >= 1_000_000
-                  ? `${(cs.totalCps / 1_000_000).toFixed(2)}M`
+                  ? `${(cs.totalCps / 1_000_000)?.toFixed(2)}M`
                   : cs.totalCps >= 1_000
-                    ? `${(cs.totalCps / 1_000).toFixed(1)}K`
-                    : cs.totalCps.toFixed(0)}
+                    ? `${(cs.totalCps / 1_000)?.toFixed(1)}K`
+                    : cs.totalCps?.toFixed(0)}
               </p>
             </div>
           )}

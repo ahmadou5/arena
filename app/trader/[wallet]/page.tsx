@@ -90,9 +90,9 @@ export async function generateMetadata({
 
 function fmtCps(n: number | null) {
   if (n === null) return "—";
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toFixed(0);
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
+  return n?.toFixed(0);
 }
 
 function shortWallet(w: string) {
@@ -298,7 +298,7 @@ export default async function TraderProfilePage({
                       label: "Win Rate",
                       value:
                         trader.currentSeason.winRate !== undefined
-                          ? `${(trader.currentSeason.winRate * 100).toFixed(0)}%`
+                          ? `${(trader.currentSeason.winRate * 100)?.toFixed(0)}%`
                           : "—",
                       color:
                         trader.currentSeason.winRate !== undefined &&

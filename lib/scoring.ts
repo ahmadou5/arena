@@ -575,8 +575,8 @@ export async function allocatePrizes(
 
   console.log(
     `[scoring] allocatePrizes season=${seasonNumber}: ${allocated} allocations ` +
-      `(individual=${individualPool.toFixed(2)} squad=${squadPool.toFixed(2)} ` +
-      `participation=${participationPool.toFixed(2)} achievement=${achievementPool.toFixed(2)}) ` +
+      `(individual=${individualPool?.toFixed(2)} squad=${squadPool?.toFixed(2)} ` +
+      `participation=${participationPool?.toFixed(2)} achievement=${achievementPool?.toFixed(2)}) ` +
       `from $${prizePoolUsdc} USDC`,
   );
   return allocated;
