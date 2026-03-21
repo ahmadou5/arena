@@ -4,17 +4,47 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "migrate": "dotenv -e .env.local npx prisma migrate dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
+  "crons": [
+    {
+      "path": "/api/cron/position-sync",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/leaderboard-update",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "dependencies": {
+    "@prisma/client": "^6.19.2",
+    "@types/jest": "^30.0.0",
+    "axios": "^1.13.6",
+    "bs58": "^6.0.0",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "jsonwebtoken": "^9.0.3",
     "next": "16.2.0",
+    "node-cron": "^4.2.1",
+    "prisma": "^6.19.2",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "tweetnacl": "^1.0.3"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

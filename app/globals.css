@@ -1,26 +1,89 @@
 @import "tailwindcss";
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@300;400;500;600;700;900&display=swap');
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Arena Protocol — Modern Minimalist */
+  --primary:   #2e3d47;
+  --secondary: #708090;
+  --accent:    #7a9ab0;
+  --accent-warm: #c8a96e;
+  --bg:        #f7f6f2;
+  --bg-card:   #ffffff;
+  --bg-subtle: #f0eeea;
+  --border:    #dddbd5;
+  --border-strong: #2e3d47;
+  --text:      #2e3d47;
+  --text-muted: #8a8880;
+  --text-dim:  #b0aea5;
+  --positive:  #3d7a5c;
+  --negative:  #9b3d3d;
+  --highlight: #2e3d47;
+  --gold:      #c8a96e;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+* { box-sizing: border-box; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+html { scroll-behavior: smooth; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', 'Arial Narrow', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography system */
+.font-display  { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; }
+.font-mono     { font-family: 'DM Mono', 'Courier New', monospace; }
+.font-body     { font-family: 'Barlow', sans-serif; }
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-subtle); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--secondary); }
+
+/* Skeleton animation */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 50%, var(--bg-subtle) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+/* Countdown digits */
+@keyframes tick {
+  0%  { transform: translateY(0); opacity: 1; }
+  49% { transform: translateY(-8px); opacity: 0; }
+  50% { transform: translateY(8px); opacity: 0; }
+  100%{ transform: translateY(0); opacity: 1; }
+}
+.tick-anim { animation: tick 0.3s ease-in-out; }
+
+/* Pulse for live indicator */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+/* Row highlight */
+.own-row {
+  background: var(--primary) !important;
+  color: #fff !important;
+}
+.own-row td { color: #fff !important; }
+
+/* Tab underline active */
+.tab-active {
+  border-bottom: 2px solid var(--primary);
+  color: var(--primary) !important;
 }

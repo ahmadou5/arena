@@ -1,0 +1,237 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Core ──────────────────────────────────────────────────────────────────────
+
+model Season {
+  id              Int                   @id @default(autoincrement())
+  seasonNumber    Int                   @unique
+  name            String
+  startTs         DateTime
+  endTs           DateTime
+  offseasonEndTs  DateTime
+  isActive        Boolean               @default(false)
+  prizePoolUsdc   Decimal               @default(0) @db.Decimal(18, 6)
+  createdAt       DateTime              @default(now())
+  squads          Squad[]
+  positions       PositionCache[]
+  seasonRecords   SeasonRecord[]
+  cpsRecords      CpsRecord[]
+  seasonSummaries SeasonTraderSummary[]
+}
+
+model Trader {
+  id                       Int                   @id @default(autoincrement())
+  wallet                   String                @unique
+  arenaRating              Int                   @default(400)
+  currentDivision          Int                   @default(5)
+  registeredSeason         Int?
+  totalSeasonsParticipated Int                   @default(0)
+  totalSeasonsMissed       Int                   @default(0)
+  lastActiveSeason         Int?
+  currentSquadId           Int?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  currentSquad             Squad?                @relation("TraderSquad", fields: [currentSquadId], references: [id])
+  seasonSummaries          SeasonTraderSummary[]
+  seasonRecords            SeasonRecord[]
+  cpsRecords               CpsRecord[]
+  achievements             Achievement[]
+  questCompletions         QuestCompletion[]
+  streak                   Streak?
+  prizeAllocations         PrizeAllocation[]
+
+  @@index([arenaRating(sort: Desc)])
+  @@index([currentDivision])
+}
+
+model PositionCache {
+  id               Int        @id @default(autoincrement())
+  positionId       Int        @unique
+  wallet           String
+  seasonNumber     Int
+  symbol           String
+  side             String
+  status           String
+  entryPrice       Decimal?   @db.Decimal(18, 6)
+  exitPrice        Decimal?   @db.Decimal(18, 6)
+  entrySize        Decimal?   @db.Decimal(18, 6)
+  pnl              Decimal?   @db.Decimal(18, 6)
+  entryLeverage    Decimal?   @db.Decimal(6, 2)
+  entryDate        DateTime?
+  exitDate         DateTime?
+  fees             Decimal?   @db.Decimal(18, 6)
+  collateralAmount Decimal?   @db.Decimal(18, 6)
+  lastSyncedAt     DateTime   @default(now())
+  season           Season     @relation(fields: [seasonNumber], references: [seasonNumber])
+  cpsRecord        CpsRecord?
+
+  @@index([wallet, seasonNumber])
+  @@index([status])
+}
+
+// ── Squad ─────────────────────────────────────────────────────────────────────
+
+model Squad {
+  id                Int               @id @default(autoincrement())
+  seasonNumber      Int
+  name              String
+  creatorWallet     String
+  division          Int               @default(5)
+  squadScore        Decimal           @default(0) @db.Decimal(18, 6)
+  isLocked          Boolean           @default(false)
+  disbanded         Boolean           @default(false)
+  synergyQuestWeeks Int               @default(0)
+  synergyStreakPeak Int               @default(0)
+  rank              Int?
+  createdAt         DateTime          @default(now())
+  season            Season            @relation(fields: [seasonNumber], references: [seasonNumber])
+  members           SquadMember[]
+  currentMembers    Trader[]          @relation("TraderSquad")
+  seasonRecords     SeasonRecord[]
+  prizes            PrizeAllocation[]
+
+  @@unique([seasonNumber, name])
+  @@index([squadScore(sort: Desc)])
+}
+
+model SquadMember {
+  id       Int      @id @default(autoincrement())
+  squadId  Int
+  wallet   String
+  joinedAt DateTime @default(now())
+  squad    Squad    @relation(fields: [squadId], references: [id], onDelete: Cascade)
+
+  @@unique([squadId, wallet])
+}
+
+// ── CPS / Scoring ─────────────────────────────────────────────────────────────
+
+model CpsRecord {
+  id               Int            @id @default(autoincrement())
+  wallet           String
+  seasonNumber     Int
+  positionId       Int?           @unique
+  rarScore         Decimal        @default(0) @db.Decimal(18, 6)
+  questCps         Decimal        @default(0) @db.Decimal(18, 6)
+  streakBonus      Decimal        @default(0) @db.Decimal(18, 6)
+  consistencyBonus Decimal        @default(0) @db.Decimal(18, 6)
+  totalCps         Decimal        @default(0) @db.Decimal(18, 6)
+  calculatedAt     DateTime       @default(now())
+  trader           Trader         @relation(fields: [wallet], references: [wallet])
+  season           Season         @relation(fields: [seasonNumber], references: [seasonNumber])
+  position         PositionCache? @relation(fields: [positionId], references: [positionId])
+
+  @@unique([wallet, seasonNumber, positionId])
+  @@index([wallet, seasonNumber])
+}
+
+model SeasonTraderSummary {
+  wallet         String
+  seasonNumber   Int
+  totalCps       Decimal  @default(0) @db.Decimal(18, 6)
+  rankInDivision Int?
+  rankAtDay14    Int?
+  division       Int?
+  winningTrades  Int      @default(0)
+  totalTrades    Int      @default(0)
+  updatedAt      DateTime @updatedAt
+  trader         Trader   @relation(fields: [wallet], references: [wallet])
+  season         Season   @relation(fields: [seasonNumber], references: [seasonNumber])
+
+  @@id([wallet, seasonNumber])
+}
+
+model SeasonRecord {
+  id            Int      @id @default(autoincrement())
+  wallet        String
+  seasonNumber  Int
+  finalCps      Decimal? @db.Decimal(18, 6)
+  finalRank     Int?
+  division      Int?
+  arStart       Int?
+  arEnd         Int?
+  promoted      Boolean  @default(false)
+  relegated     Boolean  @default(false)
+  squadId       Int?
+  squadRank     Int?
+  totalTrades   Int      @default(0)
+  winningTrades Int      @default(0)
+  createdAt     DateTime @default(now())
+  trader        Trader   @relation(fields: [wallet], references: [wallet])
+  season        Season   @relation(fields: [seasonNumber], references: [seasonNumber])
+  squad         Squad?   @relation(fields: [squadId], references: [id])
+
+  @@unique([wallet, seasonNumber])
+}
+
+// ── Gamification ──────────────────────────────────────────────────────────────
+
+model Achievement {
+  id             Int      @id @default(autoincrement())
+  wallet         String
+  seasonNumber   Int
+  achievementKey String
+  earnedAt       DateTime @default(now())
+  trader         Trader   @relation(fields: [wallet], references: [wallet])
+
+  @@unique([wallet, seasonNumber, achievementKey])
+}
+
+model Streak {
+  wallet         String    @id
+  streakDays     Int       @default(0)
+  lastStreakDate DateTime?
+  updatedAt      DateTime  @updatedAt
+  trader         Trader    @relation(fields: [wallet], references: [wallet])
+}
+
+model QuestCompletion {
+  wallet       String
+  seasonNumber Int
+  questId      String
+  questType    String
+  completedAt  DateTime @default(now())
+  trader       Trader   @relation(fields: [wallet], references: [wallet])
+
+  @@id([wallet, seasonNumber, questId])
+}
+
+model PrizeAllocation {
+  id             Int       @id @default(autoincrement())
+  wallet         String
+  seasonNumber   Int
+  prizeType      String
+  amountUsdc     Decimal   @db.Decimal(18, 6)
+  rank           Int?
+  squadId        Int?
+  achievementKey String?
+  status         String    @default("pending")
+  paidAt         DateTime?
+  txSignature    String?
+  createdAt      DateTime  @default(now())
+  trader         Trader    @relation(fields: [wallet], references: [wallet])
+  squad          Squad?    @relation(fields: [squadId], references: [id])
+
+  @@unique([wallet, seasonNumber, prizeType, rank])
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+model Nonce {
+  id        Int      @id @default(autoincrement())
+  value     String   @unique
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
