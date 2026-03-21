@@ -1,5 +1,4 @@
 // src/components/WalletProvider.tsx
-// Solana wallet adapter context provider — wraps the entire app
 "use client";
 import { useMemo } from "react";
 import {
@@ -7,12 +6,7 @@ import {
   WalletProvider as SolanaWalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-} from "@solana/wallet-adapter-wallets";
-
-// Import default styles — can be overridden in globals.css
+import { SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 const RPC_ENDPOINT =
@@ -23,14 +17,14 @@ export default function WalletProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    [],
-  );
+  // Phantom is excluded — it self-registers as a Standard Wallet automatically.
+  // Including PhantomWalletAdapter causes "registered as Standard Wallet" warning
+  // and potential duplicate wallet entries in the modal.
+  const wallets = useMemo(() => [new SolflareWalletAdapter()], []);
 
   return (
     <ConnectionProvider endpoint={RPC_ENDPOINT}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
+      <SolanaWalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>{children}</WalletModalProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>

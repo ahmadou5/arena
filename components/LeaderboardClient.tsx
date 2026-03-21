@@ -6,9 +6,9 @@ interface LeaderboardEntry {
   wallet: string;
   totalCps: number;
   rankInDivision: number | null;
-  winRate: number;
-  winningTrades: number;
-  totalTrades: number;
+  winRate?: number;
+  winningTrades?: number;
+  totalTrades?: number;
 }
 
 interface SquadEntry {
@@ -195,12 +195,12 @@ function DivisionTable({
                         className={`py-3 px-4 font-mono text-xs ${
                           isOwn
                             ? "text-white"
-                            : e.winRate >= 0.5
+                            : (e.winRate ?? 0) >= 0.5
                               ? "text-[#3d7a5c]"
                               : "text-[#9b3d3d]"
                         }`}
                       >
-                        {(e.winRate * 100).toFixed(0)}%
+                        {((e.winRate ?? 0) * 100).toFixed(0)}%
                       </td>
                       <td
                         className={`py-3 px-4 font-mono text-xs ${isOwn ? "text-[#d3d3d3]" : "text-[#8a8880]"}`}
@@ -546,9 +546,9 @@ export default function LeaderboardClient({
                               {fmtCps(e.totalCps)}
                             </td>
                             <td
-                              className={`py-2.5 px-4 font-mono text-xs ${!isOwn && (e.winRate >= 0.5 ? "text-[#3d7a5c]" : "text-[#9b3d3d]")}`}
+                              className={`py-2.5 px-4 font-mono text-xs ${!isOwn && ((e.winRate ?? 0) >= 0.5 ? "text-[#3d7a5c]" : "text-[#9b3d3d]")}`}
                             >
-                              {(e.winRate * 100).toFixed(0)}%
+                              {((e.winRate ?? 0) * 100).toFixed(0)}%
                             </td>
                             <td className="py-2.5 px-4 font-mono text-xs text-[#8a8880]">
                               {e.totalTrades}
