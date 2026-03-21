@@ -17,13 +17,18 @@ export default function WalletProvider({
 }: {
   children: React.ReactNode;
 }) {
-  // Phantom is excluded — it self-registers as a Standard Wallet automatically.
-  // Including PhantomWalletAdapter causes "registered as Standard Wallet" warning
-  // and potential duplicate wallet entries in the modal.
+  // Phantom self-registers via Standard Wallet protocol — no adapter needed.
+  // Solflare still needs an explicit adapter.
   const wallets = useMemo(() => [new SolflareWalletAdapter()], []);
 
   return (
     <ConnectionProvider endpoint={RPC_ENDPOINT}>
+      {/*
+        autoConnect={false}:
+        We never auto-connect on load. The user must click Connect,
+        pick a wallet, then click Sign In. This prevents the wallet
+        extension firing signMessage without user interaction (which crashes).
+      */}
       <SolanaWalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>{children}</WalletModalProvider>
       </SolanaWalletProvider>
