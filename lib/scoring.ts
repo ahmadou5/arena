@@ -1,7 +1,7 @@
 // lib/scoring.ts — CPS scoring engine
 
-import { prisma } from "./prisma";
-import type { AdrenaPosition } from "./adrena";
+import { prisma } from "@/lib/prisma";
+import type { AdrenaPosition } from "@/lib/adrena";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -67,7 +67,26 @@ export async function scorePosition(
         : 0;
 
   // ── RAR ───────────────────────────────────────────────────────────────
-  const rarScaled = calculateRAR(pnl, fees, collateral, durationSeconds);
+  let rarScaled = calculateRAR(pnl, fees, collateral, durationSeconds);
+
+  // ── Gauntlet multiplier (Days 7–10): 1.5x CPS ────────────────────────
+  // Applied at position-close time; stored in rarScore so leaderboard reflects it.
+  const activeSeason = await prisma.season.findUnique({
+    where: { seasonNumber },
+    select: { startTs: true },
+  });
+  if (activeSeason) {
+    const elapsed = pos.exit_date
+      ? new Date(pos.exit_date).getTime() - activeSeason.startTs.getTime()
+      : Date.now() - activeSeason.startTs.getTime();
+    const seasonDay = Math.floor(elapsed / 86_400_000) + 1;
+    if (seasonDay >= 7 && seasonDay <= 10) {
+      rarScaled = rarScaled * 1.5;
+      console.log(
+        `[scoring] Gauntlet bonus applied day=${seasonDay} positionId=${pos.position_id} multiplier=1.5x`,
+      );
+    }
+  }
 
   // ── Persist CpsRecord (upsert on positionId) ──────────────────────────
   await prisma.cpsRecord.upsert({
@@ -447,12 +466,12 @@ export async function allocatePrizes(
       where: { seasonNumber, division: Number(div), disbanded: false },
       orderBy: { squadScore: "desc" },
       take: 3,
-      include: { members: { select: { wallet: true } } },
+      include: { currentMembers: { select: { wallet: true } } },
     });
 
     for (let i = 0; i < topSquads.length; i++) {
       const squad = topSquads[i];
-      const memberWallets = (squad.members as { wallet: string }[]).map(
+      const memberWallets = (squad.currentMembers as { wallet: string }[]).map(
         (m) => m.wallet,
       );
       if (memberWallets.length === 0) continue;

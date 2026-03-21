@@ -6,6 +6,7 @@ import MyStatsCard from "@/components/MyStatsCard";
 import SeasonStatsBar from "@/components/SeasonStatsBar";
 import MidSeasonBanner from "@/components/MidSeasonBanner";
 import SquadPanel from "@/components/SquadPanel";
+import ArenaNavLink from "@/components/adrena-integration/ArenaNavLink";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
