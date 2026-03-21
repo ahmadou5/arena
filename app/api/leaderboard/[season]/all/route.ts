@@ -15,9 +15,10 @@ const DIVISION_NAMES: Record<number, string> = {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { season: string } },
+  { params }: { params: Promise<{ season: string }> },
 ) {
-  const seasonNumber = parseInt(params.season, 10);
+  const { season } = await params;
+  const seasonNumber = parseInt(season, 10);
   if (!Number.isFinite(seasonNumber) || seasonNumber < 1)
     return NextResponse.json(
       { ok: false, error: "Invalid season" },
