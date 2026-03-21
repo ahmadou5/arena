@@ -1,7 +1,7 @@
 // src/components/SquadPanel.tsx
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import DivisionBadge from "@/components/DivisionBadge";
+import DivisionBadge from "./DivisionBadge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -882,17 +882,22 @@ export default function SquadPanel({
     setLoadingMySquad(true);
     try {
       const r = await fetch(`/api/trader/${wallet}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       if (d.ok && d.squad) {
-        // Fetch full squad members
-        const sqR = await fetch(`/api/squads/open/${seasonNumber}?limit=1`); // just for lock status
         const squadDetail: MySquadData = {
-          ...d.squad,
+          id: d.squad.id,
+          name: d.squad.name,
+          division: d.squad.division ?? 5,
+          squadScore: Number(d.squad.squadScore ?? 0),
+          rank: d.squad.rank ?? null,
+          isLocked: d.squad.isLocked ?? false,
+          synergyQuestWeeks: d.squad.synergyQuestWeeks ?? 0,
+          synergyStreakPeak: d.squad.synergyStreakPeak ?? 0,
+          memberCount: d.squad.memberCount ?? 1,
           members: [],
           questSyncCount:
-            d.squad.synergyQuestWeeks > 0
-              ? d.squad.memberCount
-              : Math.floor(d.squad.memberCount * 0.6),
+            d.squad.synergyQuestWeeks > 0 ? (d.squad.memberCount ?? 1) : 0,
           tradeSyncStreak: d.squad.synergyStreakPeak ?? 0,
         };
         setMySquad(squadDetail);
@@ -901,6 +906,10 @@ export default function SquadPanel({
         setMySquad(null);
         setView("find");
       }
+    } catch (err) {
+      console.error("[SquadPanel] loadMySquad failed:", err);
+      setMySquad(null);
+      setView("find");
     } finally {
       setLoadingMySquad(false);
     }

@@ -1,10 +1,9 @@
 // src/components/SeasonLobbyClient.tsx
-// Client shell that reads auth context and passes wallet/token to interactive components
 "use client";
 import { useAuth } from "@/providers/AuthProvider";
-import ConnectButton from "@/components/ConnectButton";
-import MyStatsCard from "@/components/MyStatsCard";
-import SquadPanel from "@/components/SquadPanel";
+import ConnectButton from "./ConnectButton";
+import MyStatsCard from "./MyStatsCard";
+import SquadPanel from "./SquadPanel";
 
 interface SeasonLobbyClientProps {
   seasonNumber: number;
@@ -19,18 +18,12 @@ export default function SeasonLobbyClient({
   isSquadLocked,
   lockDay,
   seasonDay,
-  seasonName,
 }: SeasonLobbyClientProps) {
-  const { wallet, token, isConnected } = useAuth();
+  const { wallet, token } = useAuth();
 
   return (
     <>
-      {/* Connect button — replaces the static placeholder in the nav */}
-      <div id="connect-wallet-slot">
-        <ConnectButton />
-      </div>
-
-      {/* My Stats Card — only renders meaningful content when connected */}
+      {/* My Stats Card — shows connect prompt when wallet=null */}
       <MyStatsCard wallet={wallet} seasonNumber={seasonNumber} />
 
       {/* Squad Panel — floating slide-over */}
@@ -44,4 +37,9 @@ export default function SeasonLobbyClient({
       />
     </>
   );
+}
+
+// Separate named export just for the nav button — imported directly in page nav slot
+export function NavConnectButton() {
+  return <ConnectButton />;
 }

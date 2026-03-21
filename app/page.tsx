@@ -1,16 +1,15 @@
 // src/app/page.tsx — Season Lobby (Server Component)
 import { Suspense } from "react";
-import { prisma } from "../lib/prisma";
-import { getSeasonDay, isSquadLockDay } from "../lib/season";
-import Countdown from "../components/Countdown";
-import LeaderboardClient from "../components/LeaderboardClient";
-import MyStatsCard from "../components/MyStatsCard";
-import SeasonStatsBar from "../components/SeasonStatsBar";
-import MidSeasonBanner from "../components/MidSeasonBanner";
-import SquadPanel from "../components/SquadPanel";
-import MidSeasonEvents from "../components/MidSeasonEvents";
-import SeasonLobbyClient from "../components/SeasonLobbyClient";
-import ConnectButton from "../components/ConnectButton";
+import { prisma } from "@/lib/prisma";
+import { getSeasonDay, isSquadLockDay } from "@/lib/season";
+import Countdown from "@/components/Countdown";
+import LeaderboardClient from "@/components/LeaderboardClient";
+import SeasonStatsBar from "@/components/SeasonStatsBar";
+import MidSeasonBanner from "@/components/MidSeasonBanner";
+import MidSeasonEvents from "@/components/MidSeasonEvents";
+import SeasonLobbyClient, {
+  NavConnectButton,
+} from "@/components/SeasonLobbyClient";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -196,7 +195,7 @@ export default async function SeasonLobby() {
           <span className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest hidden sm:block">
             Season {season.seasonNumber} · Day {season.seasonDay}
           </span>
-          <ConnectButton />
+          <NavConnectButton />
         </div>
       </nav>
 

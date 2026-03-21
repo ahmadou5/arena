@@ -418,13 +418,9 @@ export default function MidSeasonEvents({
 
   const phase = data.phase;
 
-  // Day 7–10: Gauntlet
-  if (phase === "early_bird" && seasonDay >= 7) {
-    const startTs = new Date(seasonStartTs);
-    const gEnd = gauntletEndDate(seasonNumber, startTs);
-    return <GauntletBanner data={data} gauntletEnd={gEnd} />;
-  }
-  if (phase === "momentum" || (seasonDay >= 7 && seasonDay <= 10)) {
+  // Day 7–10: Gauntlet — fires on days 7-10 regardless of API phase label
+  // (API returns 'momentum' on day 7+ but we want Gauntlet overlay for days 7-10)
+  if (seasonDay >= 7 && seasonDay <= 10) {
     const startTs = new Date(seasonStartTs);
     const gEnd = gauntletEndDate(seasonNumber, startTs);
     return <GauntletBanner data={data} gauntletEnd={gEnd} />;
