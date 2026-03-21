@@ -1,10 +1,11 @@
 // src/app/trader/[wallet]/page.tsx — Public Trader Profile (Server Component)
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import DivisionBadge from "@/components/DivisionBadge";
 import AchievementsWall from "@/components/AchievementsWall";
 import ARSparkline from "@/components/ARSparkline";
+import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -59,14 +60,151 @@ interface TraderData {
 // ── Data fetch ─────────────────────────────────────────────────────────────
 
 async function fetchTrader(wallet: string): Promise<TraderData | null> {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   try {
-    const r = await fetch(`${base}/api/trader/${wallet}`, {
-      next: { revalidate: 60 },
+    const trader = await prisma.trader.findUnique({
+      where: { wallet },
+      select: {
+        wallet: true,
+        arenaRating: true,
+        currentDivision: true,
+        registeredSeason: true,
+        totalSeasonsParticipated: true,
+        lastActiveSeason: true,
+        currentSquadId: true,
+        createdAt: true,
+        currentSquad: {
+          select: {
+            id: true,
+            name: true,
+            division: true,
+            squadScore: true,
+            rank: true,
+            isLocked: true,
+            synergyQuestWeeks: true,
+            synergyStreakPeak: true,
+            _count: { select: { currentMembers: true } },
+          },
+        },
+        streak: { select: { streakDays: true, lastStreakDate: true } },
+        achievements: {
+          orderBy: { earnedAt: "desc" },
+          select: { achievementKey: true, seasonNumber: true, earnedAt: true },
+        },
+      },
     });
-    const d = await r.json();
-    return d.ok ? d : null;
-  } catch {
+    if (!trader) return null;
+
+    // Season history — last 10
+    const seasonHistory = await prisma.seasonRecord.findMany({
+      where: { wallet },
+      orderBy: { seasonNumber: "desc" },
+      take: 10,
+      select: {
+        seasonNumber: true,
+        finalCps: true,
+        finalRank: true,
+        division: true,
+        arStart: true,
+        arEnd: true,
+        promoted: true,
+        relegated: true,
+        totalTrades: true,
+        winningTrades: true,
+      },
+    });
+
+    // AR history from season records
+    const arHistory = seasonHistory
+      .filter((r) => r.arEnd !== null)
+      .map((r) => ({
+        season: r.seasonNumber,
+        ar: r.arEnd as number,
+        division: r.division,
+      }))
+      .reverse();
+
+    // Active season summary
+    const activeSeason = await prisma.season.findFirst({
+      where: { isActive: true },
+      select: { seasonNumber: true, name: true },
+    });
+    let currentSeason = null;
+    if (activeSeason) {
+      const summary = await prisma.seasonTraderSummary.findUnique({
+        where: {
+          wallet_seasonNumber: {
+            wallet,
+            seasonNumber: activeSeason.seasonNumber,
+          },
+        },
+        select: {
+          totalCps: true,
+          rankInDivision: true,
+          division: true,
+          totalTrades: true,
+          winningTrades: true,
+        },
+      });
+      currentSeason = {
+        seasonNumber: activeSeason.seasonNumber,
+        name: activeSeason.name,
+        ...(summary
+          ? {
+              totalCps: Number(summary.totalCps),
+              rankInDivision: summary.rankInDivision,
+              division: summary.division,
+              totalTrades: summary.totalTrades,
+              winRate:
+                summary.totalTrades > 0
+                  ? summary.winningTrades / summary.totalTrades
+                  : 0,
+            }
+          : {}),
+      };
+    }
+
+    const DIV_NAMES: Record<number, string> = {
+      1: "Grandmaster",
+      2: "Diamond",
+      3: "Platinum",
+      4: "Gold",
+      5: "Silver",
+    };
+
+    return {
+      wallet: trader.wallet,
+      arenaRating: trader.arenaRating,
+      division: trader.currentDivision,
+      divisionName: DIV_NAMES[trader.currentDivision] ?? "Silver",
+      createdAt: trader.createdAt.toISOString(),
+      totalSeasonsParticipated: trader.totalSeasonsParticipated,
+      lastActiveSeason: trader.lastActiveSeason,
+      currentSeason,
+      seasonHistory: seasonHistory.map((r) => ({
+        ...r,
+        finalCps: r.finalCps !== null ? Number(r.finalCps) : null,
+      })),
+      achievements: trader.achievements.map((a) => ({
+        ...a,
+        earnedAt: a.earnedAt.toISOString(),
+      })),
+      arHistory,
+      squad: trader.currentSquad
+        ? {
+            ...trader.currentSquad,
+            squadScore: Number(trader.currentSquad.squadScore),
+            memberCount: trader.currentSquad._count.currentMembers,
+          }
+        : null,
+      streak: trader.streak
+        ? {
+            streakDays: trader.streak.streakDays,
+            lastStreakDate: trader.streak.lastStreakDate?.toISOString() ?? null,
+          }
+        : null,
+    };
+  } catch (e) {
+    console.error("[trader page] fetchTrader error:", e);
     return null;
   }
 }
@@ -90,9 +228,9 @@ export async function generateMetadata({
 
 function fmtCps(n: number | null) {
   if (n === null) return "—";
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
-  return n?.toFixed(0);
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toFixed(0);
 }
 
 function shortWallet(w: string) {
@@ -298,7 +436,7 @@ export default async function TraderProfilePage({
                       label: "Win Rate",
                       value:
                         trader.currentSeason.winRate !== undefined
-                          ? `${(trader.currentSeason.winRate * 100)?.toFixed(0)}%`
+                          ? `${(trader.currentSeason.winRate * 100).toFixed(0)}%`
                           : "—",
                       color:
                         trader.currentSeason.winRate !== undefined &&
@@ -388,6 +526,7 @@ export default async function TraderProfilePage({
                   <Link
                     href="/"
                     className="font-mono text-[10px] uppercase tracking-widest text-[#2e3d47] border border-[#2e3d47] px-3 py-1.5 hover:bg-[#2e3d47] hover:text-white transition-colors"
+                    style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
                   >
                     Join a squad →
                   </Link>
