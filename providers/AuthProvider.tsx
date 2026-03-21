@@ -16,19 +16,12 @@ import bs58 from "bs58";
 type AuthStatus = "idle" | "signing" | "authenticated" | "error";
 
 interface AuthContextValue {
-  // Wallet public key (available as soon as wallet connects, before sign-in)
   wallet: string | null;
-  // JWT token (only available after sign-in)
   token: string | null;
-  // Derived status for easy conditional rendering
   status: AuthStatus;
-  // Human-readable error if status === "error"
   error: string | null;
-  // Open the wallet-select modal
   openModal: () => void;
-  // Trigger sign-in after wallet is connected
   signIn: () => void;
-  // Disconnect wallet and clear token
   signOut: () => void;
 }
 
@@ -48,7 +41,7 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-// ── Token helpers (sessionStorage — cleared when tab closes) ──────────────────
+// ── Token helpers ─────────────────────────────────────────────────────────────
 
 const KEY = (wallet: string) => `arena:jwt:${wallet}`;
 
@@ -59,27 +52,48 @@ function readToken(wallet: string): string | null {
     return null;
   }
 }
-
 function writeToken(wallet: string, token: string) {
   try {
     sessionStorage.setItem(KEY(wallet), token);
   } catch {}
 }
-
 function deleteToken(wallet: string) {
   try {
     sessionStorage.removeItem(KEY(wallet));
   } catch {}
 }
-
 function tokenExpired(token: string): boolean {
   try {
     const { exp } = JSON.parse(atob(token.split(".")[1]));
-    // Consider expired 2 minutes early to avoid edge-case 401s
     return exp ? exp * 1000 < Date.now() + 120_000 : false;
   } catch {
     return true;
   }
+}
+
+// ── Signature extraction helper ───────────────────────────────────────────────
+// Different wallets return different shapes from signMessage:
+//   Phantom (Standard Wallet):  Uint8Array                    ← raw bytes
+//   Phantom (Legacy):           { signature: Uint8Array }     ← wrapped
+//   Solflare:                   Uint8Array                    ← raw bytes
+// We normalise all of them to a plain Uint8Array before bs58-encoding.
+
+function extractSignatureBytes(result: unknown): Uint8Array {
+  if (result instanceof Uint8Array) {
+    return result;
+  }
+  // Phantom legacy / some adapters wrap it
+  if (
+    result !== null &&
+    typeof result === "object" &&
+    "signature" in (result as object)
+  ) {
+    const sig = (result as { signature: unknown }).signature;
+    if (sig instanceof Uint8Array) return sig;
+  }
+  throw new Error(
+    `signMessage returned unexpected type: ${Object.prototype.toString.call(result)}`,
+  );
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────────
@@ -99,17 +113,24 @@ export default function AuthProvider({
 
   const wallet = publicKey?.toBase58() ?? null;
 
-  // ── openModal: show wallet-select popup ───────────────────────────────────
-  const openModal = useCallback(() => {
-    setVisible(true);
-  }, [setVisible]);
+  const openModal = useCallback(() => setVisible(true), [setVisible]);
 
-  // ── signIn: called after wallet is connected, on user button click ─────────
   const signIn = useCallback(async () => {
-    if (!wallet || !connected || !signMessage) return;
+    if (!wallet || !connected) {
+      setError("Wallet not connected");
+      setStatus("error");
+      return;
+    }
+    if (!signMessage) {
+      setError(
+        "This wallet does not support message signing. Try Phantom or Solflare.",
+      );
+      setStatus("error");
+      return;
+    }
     if (inFlight.current) return;
 
-    // Check for a still-valid cached token first — skip signing if possible
+    // Use cached token if still valid
     const cached = readToken(wallet);
     if (cached && !tokenExpired(cached)) {
       setToken(cached);
@@ -122,50 +143,64 @@ export default function AuthProvider({
     setError(null);
 
     try {
-      // Step 1: get a one-time nonce from the server
+      // 1. Get nonce
       const nonceRes = await fetch("/api/auth/nonce");
-      const { nonce } = await nonceRes.json();
-      if (!nonce) throw new Error("Could not get nonce from server");
+      if (!nonceRes.ok)
+        throw new Error(`Nonce request failed (${nonceRes.status})`);
+      const { nonce } = (await nonceRes.json()) as { nonce?: string };
+      if (!nonce) throw new Error("Server returned empty nonce");
 
-      // Step 2: build the message and ask the wallet to sign it
-      // This is what triggers the Phantom / Solflare popup
+      // 2. Build message + sign
       const message = `Arena Protocol login\nNonce: ${nonce}\nWallet: ${wallet}`;
-      const signature = await signMessage(new TextEncoder().encode(message));
-      const signedMessage = bs58.encode(signature);
+      const msgBytes = new TextEncoder().encode(message);
+      const rawResult = await signMessage(msgBytes);
 
-      // Step 3: send signature to server, get JWT back
+      // 3. Normalise — different wallets return different shapes
+      const sigBytes = extractSignatureBytes(rawResult);
+      const signedMessage = bs58.encode(sigBytes);
+
+      // 4. Verify on server + get JWT
       const authRes = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet, signedMessage, message }),
       });
-      const data = await authRes.json();
-      if (!data.success) throw new Error(data.error ?? "Sign-in failed");
+      if (!authRes.ok)
+        throw new Error(`Auth request failed (${authRes.status})`);
+      const data = (await authRes.json()) as {
+        success: boolean;
+        token?: string;
+        error?: string;
+      };
+      if (!data.success || !data.token)
+        throw new Error(data.error ?? "Sign-in failed");
 
-      // Step 4: store and expose the token
+      // 5. Store + expose
       writeToken(wallet, data.token);
       setToken(data.token);
       setStatus("authenticated");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      const userRejected =
+      const userDismissed =
         msg.toLowerCase().includes("reject") ||
         msg.toLowerCase().includes("cancel") ||
-        msg.toLowerCase().includes("denied");
-      if (userRejected) {
-        // User closed the popup — go back to idle, not an error state
+        msg.toLowerCase().includes("denied") ||
+        msg.toLowerCase().includes("closed");
+
+      if (userDismissed) {
+        // User closed the popup — silently back to idle
         setStatus("idle");
+        setError(null);
       } else {
+        console.error("[auth] signIn error:", err);
         setError(msg);
         setStatus("error");
-        console.error("[auth] sign-in failed:", err);
       }
     } finally {
       inFlight.current = false;
     }
   }, [wallet, connected, signMessage]);
 
-  // ── signOut: disconnect wallet and clear stored token ─────────────────────
   const signOut = useCallback(() => {
     if (wallet) deleteToken(wallet);
     setToken(null);
@@ -176,15 +211,7 @@ export default function AuthProvider({
 
   return (
     <AuthContext.Provider
-      value={{
-        wallet,
-        token,
-        status,
-        error,
-        openModal,
-        signIn,
-        signOut,
-      }}
+      value={{ wallet, token, status, error, openModal, signIn, signOut }}
     >
       {children}
     </AuthContext.Provider>
