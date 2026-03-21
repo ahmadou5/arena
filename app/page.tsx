@@ -1,18 +1,23 @@
 // src/app/page.tsx — Season Lobby (Server Component)
 import { Suspense } from "react";
-import Countdown from "@/components/Countdown";
-import LeaderboardClient from "@/components/LeaderboardClient";
-import MyStatsCard from "@/components/MyStatsCard";
-import SeasonStatsBar from "@/components/SeasonStatsBar";
-import MidSeasonBanner from "@/components/MidSeasonBanner";
-import SquadPanel from "@/components/SquadPanel";
-import ArenaNavLink from "@/components/adrena-integration/ArenaNavLink";
+import { prisma } from "../lib/prisma";
+import { getSeasonDay, isSquadLockDay } from "../lib/season";
+import Countdown from "../components/Countdown";
+import LeaderboardClient from "../components/LeaderboardClient";
+import MyStatsCard from "../components/MyStatsCard";
+import SeasonStatsBar from "../components/SeasonStatsBar";
+import MidSeasonBanner from "../components/MidSeasonBanner";
+import SquadPanel from "../components/SquadPanel";
+import MidSeasonEvents from "../components/MidSeasonEvents";
+import SeasonLobbyClient from "../components/SeasonLobbyClient";
+import ConnectButton from "../components/ConnectButton";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface SeasonData {
   seasonNumber: number;
   name: string;
+  startTs: string;
   endTs: string;
   prizePoolUsdc: number;
   seasonDay: number;
@@ -43,14 +48,24 @@ interface MidSeasonData {
 // ── Server data fetching ───────────────────────────────────────────────────
 
 async function fetchActiveSeason(): Promise<SeasonData | null> {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   try {
-    const r = await fetch(`${base}/api/seasons/active`, {
-      next: { revalidate: 60 },
-    });
-    const d = await r.json();
-    return d.ok ? d.season : null;
-  } catch {
+    const season = await prisma.season.findFirst({ where: { isActive: true } });
+    if (!season) return null;
+    const day = getSeasonDay(season);
+    return {
+      seasonNumber: season.seasonNumber,
+      name: season.name,
+      startTs: season.startTs.toISOString(),
+      endTs: season.endTs.toISOString(),
+      offseasonEndTs: season.offseasonEndTs.toISOString(),
+      isActive: true,
+      prizePoolUsdc: Number(season.prizePoolUsdc),
+      seasonDay: day,
+      isSquadLockDay: isSquadLockDay(season),
+      squadsLocked: day > 3,
+    };
+  } catch (e) {
+    console.error("[page] fetchActiveSeason error:", e);
     return null;
   }
 }
@@ -179,13 +194,7 @@ export default async function SeasonLobby() {
           <span className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest hidden sm:block">
             Season {season.seasonNumber} · Day {season.seasonDay}
           </span>
-          {/* Wallet connection placeholder — integrate with Adrena wallet adapter */}
-          <button
-            id="connect-wallet-btn"
-            className="font-mono text-xs uppercase tracking-widest px-4 py-2 border border-[#2e3d47] text-[#2e3d47] hover:bg-[#2e3d47] hover:text-white transition-colors"
-          >
-            Connect
-          </button>
+          <ConnectButton />
         </div>
       </nav>
 
@@ -292,13 +301,26 @@ export default async function SeasonLobby() {
               />
             </div>
           )}
+
+          {/* Interactive event overlays — Gauntlet / Final Push */}
+          <MidSeasonEvents
+            seasonNumber={season.seasonNumber}
+            seasonDay={season.seasonDay}
+            seasonEndTs={season.endTs}
+            seasonStartTs={season.startTs ?? season.endTs}
+          />
         </section>
 
         {/* ── SECTION 2: My Stats Card ── */}
         <section>
           <SectionLabel>My Stats</SectionLabel>
-          {/* wallet=null — wallet injection happens client-side via Adrena wallet adapter */}
-          <MyStatsCard wallet={null} seasonNumber={season.seasonNumber} />
+          <SeasonLobbyClient
+            seasonNumber={season.seasonNumber}
+            isSquadLocked={season.squadsLocked}
+            lockDay={3}
+            seasonDay={season.seasonDay}
+            seasonName={season.name}
+          />
         </section>
 
         {/* ── SECTION 3: Leaderboard ── */}
@@ -316,16 +338,6 @@ export default async function SeasonLobby() {
       </main>
 
       {/* ── Footer ── */}
-      {/* SquadPanel — floating slide-over, wallet/token injected client-side */}
-      <SquadPanel
-        seasonNumber={season.seasonNumber}
-        wallet={null}
-        token={null}
-        isSquadLocked={season.squadsLocked}
-        lockDay={3}
-        seasonDay={season.seasonDay}
-      />
-
       <footer className="border-t border-[#dddbd5] px-6 py-6 mt-12">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
