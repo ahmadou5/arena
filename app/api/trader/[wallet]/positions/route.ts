@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { wallet: string } },
+  { params }: { params: Promise<{ wallet: string }> },
 ) {
-  const { wallet } = params;
+  const { wallet } = await params;
   const sp = req.nextUrl.searchParams;
 
   const page = Math.max(1, parseInt(sp.get("page") ?? "1", 10) || 1);

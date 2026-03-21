@@ -7,9 +7,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { season: string } },
+  { params }: { params: Promise<{ season: string }> },
 ) {
-  const seasonNumber = parseInt(params.season, 10);
+  const { season: seasonParam } = await params;
+  const seasonNumber = parseInt(seasonParam, 10);
   if (!Number.isFinite(seasonNumber) || seasonNumber < 1)
     return NextResponse.json(
       { ok: false, error: "Invalid season" },

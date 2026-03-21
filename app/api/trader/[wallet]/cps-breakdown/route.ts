@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { wallet: string } },
+  { params }: { params: Promise<{ wallet: string }> },
 ) {
+  const { wallet: paramWallet } = await params;
   let authWallet: string;
   try {
     authWallet = requireAuth(req);
@@ -18,13 +19,12 @@ export async function GET(
     return res as Response;
   }
 
-  if (authWallet !== params.wallet)
+  if (authWallet !== paramWallet)
     return NextResponse.json(
       { ok: false, error: "Forbidden — own wallet only" },
       { status: 403 },
     );
 
-  const { wallet } = params;
   const sp = req.nextUrl.searchParams;
   const seasonParam = sp.get("season");
 
@@ -50,11 +50,11 @@ export async function GET(
     seasonNumber = active.seasonNumber;
   }
 
-  const breakdown = await calculateSeasonCPS(wallet, seasonNumber);
+  const breakdown = await calculateSeasonCPS(paramWallet, seasonNumber);
 
   // Per-position CPS records
   const records = await prisma.cpsRecord.findMany({
-    where: { wallet, seasonNumber },
+    where: { wallet: paramWallet, seasonNumber },
     orderBy: { calculatedAt: "desc" },
     take: 100,
     select: {
@@ -70,7 +70,7 @@ export async function GET(
 
   // Summary stats
   const summary = await prisma.seasonTraderSummary.findUnique({
-    where: { wallet_seasonNumber: { wallet, seasonNumber } },
+    where: { wallet_seasonNumber: { wallet: paramWallet, seasonNumber } },
     select: {
       totalTrades: true,
       winningTrades: true,
@@ -81,7 +81,7 @@ export async function GET(
 
   return NextResponse.json({
     ok: true,
-    wallet,
+    wallet: paramWallet,
     seasonNumber,
     breakdown: {
       finalCps: breakdown.finalCps,

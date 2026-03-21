@@ -15,9 +15,9 @@ const DIVISION_NAMES: Record<number, string> = {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { wallet: string } },
+  { params }: { params: Promise<{ wallet: string }> },
 ) {
-  const { wallet } = params;
+  const { wallet } = await params;
   if (!wallet)
     return NextResponse.json(
       { ok: false, error: "Wallet required" },
