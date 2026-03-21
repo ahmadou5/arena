@@ -261,9 +261,10 @@ const DIV_COLORS: Record<number, string> = {
 export default async function TraderProfilePage({
   params,
 }: {
-  params: { wallet: string };
+  params: Promise<{ wallet: string }>;
 }) {
-  const trader = await fetchTrader(params.wallet);
+  const { wallet } = await params;
+  const trader = await fetchTrader(wallet);
   if (!trader) notFound();
 
   const divColor = DIV_COLORS[trader.division] ?? "#708090";
