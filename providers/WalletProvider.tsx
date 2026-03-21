@@ -25,17 +25,13 @@ export default function WalletProvider({
   children: React.ReactNode;
 }) {
   const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-      new CoinbaseWalletAdapter(),
-    ],
+    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
     [],
   );
 
   return (
     <ConnectionProvider endpoint={RPC_ENDPOINT}>
-      <SolanaWalletProvider wallets={wallets} autoConnect={false}>
+      <SolanaWalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>{children}</WalletModalProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>
