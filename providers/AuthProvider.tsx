@@ -11,59 +11,74 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import bs58 from "bs58";
 
-// ── Context ───────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type AuthStatus = "idle" | "signing" | "authenticated" | "error";
 
 interface AuthContextValue {
+  // Wallet public key (available as soon as wallet connects, before sign-in)
   wallet: string | null;
+  // JWT token (only available after sign-in)
   token: string | null;
-  isConnected: boolean;
-  isAuthenticating: boolean;
-  authError: string | null;
-  connect: () => void;
-  disconnect: () => void;
-  triggerAuth: () => void; // must be in context — ConnectButton calls this
+  // Derived status for easy conditional rendering
+  status: AuthStatus;
+  // Human-readable error if status === "error"
+  error: string | null;
+  // Open the wallet-select modal
+  openModal: () => void;
+  // Trigger sign-in after wallet is connected
+  signIn: () => void;
+  // Disconnect wallet and clear token
+  signOut: () => void;
 }
+
+// ── Context ───────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue>({
   wallet: null,
   token: null,
-  isConnected: false,
-  isAuthenticating: false,
-  authError: null,
-  connect: () => {},
-  disconnect: () => {},
-  triggerAuth: () => {},
+  status: "idle",
+  error: null,
+  openModal: () => {},
+  signIn: () => {},
+  signOut: () => {},
 });
 
 export function useAuth() {
   return useContext(AuthContext);
 }
 
-// ── JWT helpers ───────────────────────────────────────────────────────────────
+// ── Token helpers (sessionStorage — cleared when tab closes) ──────────────────
 
-function saveToken(wallet: string, token: string) {
+const KEY = (wallet: string) => `arena:jwt:${wallet}`;
+
+function readToken(wallet: string): string | null {
   try {
-    sessionStorage.setItem(`arena_jwt_${wallet}`, token);
-  } catch {}
-}
-function loadToken(wallet: string): string | null {
-  try {
-    return sessionStorage.getItem(`arena_jwt_${wallet}`);
+    return sessionStorage.getItem(KEY(wallet));
   } catch {
     return null;
   }
 }
-function clearToken(wallet: string) {
+
+function writeToken(wallet: string, token: string) {
   try {
-    sessionStorage.removeItem(`arena_jwt_${wallet}`);
+    sessionStorage.setItem(KEY(wallet), token);
   } catch {}
 }
-function isTokenValid(token: string): boolean {
+
+function deleteToken(wallet: string) {
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.exp ? payload.exp * 1000 > Date.now() + 60_000 : true;
+    sessionStorage.removeItem(KEY(wallet));
+  } catch {}
+}
+
+function tokenExpired(token: string): boolean {
+  try {
+    const { exp } = JSON.parse(atob(token.split(".")[1]));
+    // Consider expired 2 minutes early to avoid edge-case 401s
+    return exp ? exp * 1000 < Date.now() + 120_000 : false;
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -74,110 +89,101 @@ export default function AuthProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const {
-    publicKey,
-    signMessage,
-    disconnect: walletDisconnect,
-    connected,
-  } = useWallet();
+  const { publicKey, signMessage, connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
 
   const [token, setToken] = useState<string | null>(null);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const authInProgress = useRef(false);
+  const [status, setStatus] = useState<AuthStatus>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
-  const walletAddress = publicKey?.toBase58() ?? null;
+  const wallet = publicKey?.toBase58() ?? null;
 
-  // ── triggerAuth: called explicitly by the user clicking "Sign In" ──────────
-  // NOT called automatically — avoids the cascade-render / auto-popup crash
-  const triggerAuth = useCallback(async () => {
-    const wallet = publicKey?.toBase58();
-    if (!wallet || !connected) return;
-    if (authInProgress.current) return;
+  // ── openModal: show wallet-select popup ───────────────────────────────────
+  const openModal = useCallback(() => {
+    setVisible(true);
+  }, [setVisible]);
 
-    authInProgress.current = true;
-    setIsAuthenticating(true);
-    setAuthError(null);
+  // ── signIn: called after wallet is connected, on user button click ─────────
+  const signIn = useCallback(async () => {
+    if (!wallet || !connected || !signMessage) return;
+    if (inFlight.current) return;
+
+    // Check for a still-valid cached token first — skip signing if possible
+    const cached = readToken(wallet);
+    if (cached && !tokenExpired(cached)) {
+      setToken(cached);
+      setStatus("authenticated");
+      return;
+    }
+
+    inFlight.current = true;
+    setStatus("signing");
+    setError(null);
 
     try {
-      // Check for a valid cached token first — no need to re-sign
-      const cached = loadToken(wallet);
-      if (cached && isTokenValid(cached)) {
-        setToken(cached);
-        return;
-      }
-
-      // Fetch a one-time nonce
+      // Step 1: get a one-time nonce from the server
       const nonceRes = await fetch("/api/auth/nonce");
-      if (!nonceRes.ok) throw new Error("Failed to get nonce");
       const { nonce } = await nonceRes.json();
-      if (!nonce) throw new Error("No nonce in response");
+      if (!nonce) throw new Error("Could not get nonce from server");
 
-      // Build the message the user will sign
-      const message = [
-        "Arena Protocol login",
-        `Nonce: ${nonce}`,
-        `Wallet: ${wallet}`,
-      ].join("\n");
-
-      // Request signature from wallet extension
-      if (!signMessage) throw new Error("Wallet does not support signMessage");
-      const encoded = new TextEncoder().encode(message);
-      const signature = await signMessage(encoded);
+      // Step 2: build the message and ask the wallet to sign it
+      // This is what triggers the Phantom / Solflare popup
+      const message = `Arena Protocol login\nNonce: ${nonce}\nWallet: ${wallet}`;
+      const signature = await signMessage(new TextEncoder().encode(message));
       const signedMessage = bs58.encode(signature);
 
-      // Verify + register on the server
+      // Step 3: send signature to server, get JWT back
       const authRes = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet, signedMessage, message }),
       });
-      const authData = await authRes.json();
-      if (!authData.success) throw new Error(authData.error ?? "Auth failed");
+      const data = await authRes.json();
+      if (!data.success) throw new Error(data.error ?? "Sign-in failed");
 
-      saveToken(wallet, authData.token);
-      setToken(authData.token);
+      // Step 4: store and expose the token
+      writeToken(wallet, data.token);
+      setToken(data.token);
+      setStatus("authenticated");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      // User rejected the signature popup — silent, not an error
-      if (
+      const userRejected =
         msg.toLowerCase().includes("reject") ||
-        msg.toLowerCase().includes("cancel")
-      ) {
-        setAuthError(null);
+        msg.toLowerCase().includes("cancel") ||
+        msg.toLowerCase().includes("denied");
+      if (userRejected) {
+        // User closed the popup — go back to idle, not an error state
+        setStatus("idle");
       } else {
-        setAuthError(msg);
-        console.error("[auth] triggerAuth failed:", err);
+        setError(msg);
+        setStatus("error");
+        console.error("[auth] sign-in failed:", err);
       }
     } finally {
-      setIsAuthenticating(false);
-      authInProgress.current = false;
+      inFlight.current = false;
     }
-  }, [publicKey, connected, signMessage]);
+  }, [wallet, connected, signMessage]);
 
-  // Open the wallet-select modal
-  const connect = useCallback(() => setVisible(true), [setVisible]);
-
-  // Disconnect and clear stored token
-  const disconnect = useCallback(() => {
-    if (walletAddress) clearToken(walletAddress);
+  // ── signOut: disconnect wallet and clear stored token ─────────────────────
+  const signOut = useCallback(() => {
+    if (wallet) deleteToken(wallet);
     setToken(null);
-    setAuthError(null);
-    walletDisconnect();
-  }, [walletAddress, walletDisconnect]);
+    setStatus("idle");
+    setError(null);
+    disconnect();
+  }, [wallet, disconnect]);
 
   return (
     <AuthContext.Provider
       value={{
-        wallet: walletAddress,
+        wallet,
         token,
-        isConnected: connected && !!token,
-        isAuthenticating,
-        authError,
-        connect,
-        disconnect,
-        triggerAuth,
+        status,
+        error,
+        openModal,
+        signIn,
+        signOut,
       }}
     >
       {children}

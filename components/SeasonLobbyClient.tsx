@@ -1,11 +1,11 @@
 // src/components/SeasonLobbyClient.tsx
 "use client";
 import { useAuth } from "@/providers/AuthProvider";
-import ConnectButton from "./ConnectButton";
-import MyStatsCard from "./MyStatsCard";
-import SquadPanel from "./SquadPanel";
+import ConnectButton from "@/components/ConnectButton";
+import MyStatsCard from "@/components/MyStatsCard";
+import SquadPanel from "@/components/SquadPanel";
 
-interface SeasonLobbyClientProps {
+interface Props {
   seasonNumber: number;
   isSquadLocked: boolean;
   lockDay: number;
@@ -18,15 +18,12 @@ export default function SeasonLobbyClient({
   isSquadLocked,
   lockDay,
   seasonDay,
-}: SeasonLobbyClientProps) {
+}: Props) {
   const { wallet, token } = useAuth();
 
   return (
     <>
-      {/* My Stats Card — shows connect prompt when wallet=null */}
       <MyStatsCard wallet={wallet} seasonNumber={seasonNumber} />
-
-      {/* Squad Panel — floating slide-over */}
       <SquadPanel
         seasonNumber={seasonNumber}
         wallet={wallet}
@@ -39,7 +36,8 @@ export default function SeasonLobbyClient({
   );
 }
 
-// Separate named export just for the nav button — imported directly in page nav slot
+// Separate named export — used in the nav by page.tsx
+// Both are client components so this is safe to import from a server component
 export function NavConnectButton() {
   return <ConnectButton />;
 }
