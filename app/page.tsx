@@ -19,6 +19,8 @@ interface SeasonData {
   name: string;
   startTs: string;
   endTs: string;
+  offseasonEndTs: string;
+  isActive: boolean;
   prizePoolUsdc: number;
   seasonDay: number;
   isSquadLockDay: boolean;
