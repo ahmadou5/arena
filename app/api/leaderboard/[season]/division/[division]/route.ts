@@ -17,17 +17,18 @@ const MAX_LIMIT = 200;
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { season: string; division: string } },
+  { params }: { params: Promise<{ season: string; division: string }> },
 ) {
-  const seasonNumber = parseInt(params.season, 10);
-  const division = parseInt(params.division, 10);
+  const { season, division } = await params;
+  const seasonNumber = parseInt(season, 10);
+  const divisionNumber = parseInt(division, 10);
 
   if (!Number.isFinite(seasonNumber) || seasonNumber < 1)
     return NextResponse.json(
       { ok: false, error: "Invalid season" },
       { status: 400 },
     );
-  if (division < 1 || division > 5)
+  if (divisionNumber < 1 || divisionNumber > 5)
     return NextResponse.json(
       { ok: false, error: "Division must be 1–5" },
       { status: 400 },
@@ -47,7 +48,7 @@ export async function GET(
 
   const [entries, totalTraders] = await Promise.all([
     prisma.seasonTraderSummary.findMany({
-      where: { seasonNumber, division },
+      where: { seasonNumber, division: divisionNumber },
       orderBy: { rankInDivision: "asc" },
       skip,
       take: limit,
@@ -60,7 +61,9 @@ export async function GET(
         totalTrades: true,
       },
     }),
-    prisma.seasonTraderSummary.count({ where: { seasonNumber, division } }),
+    prisma.seasonTraderSummary.count({
+      where: { seasonNumber, division: divisionNumber },
+    }),
   ]);
 
   // myRank: always fetch if wallet param provided, regardless of current page
@@ -70,7 +73,7 @@ export async function GET(
       where: { wallet_seasonNumber: { wallet, seasonNumber } },
       select: { rankInDivision: true, division: true },
     });
-    if (mine?.division === division) myRank = mine.rankInDivision ?? null;
+    if (mine?.division === divisionNumber) myRank = mine.rankInDivision ?? null;
   }
 
   return NextResponse.json({
@@ -84,8 +87,8 @@ export async function GET(
     totalTraders,
     page,
     totalPages: Math.ceil(totalTraders / limit),
-    division,
-    divisionName: DIVISION_NAMES[division],
+    division: divisionNumber,
+    divisionName: DIVISION_NAMES[divisionNumber],
     seasonNumber,
   });
 }
