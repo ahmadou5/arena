@@ -1,6 +1,7 @@
 // src/app/trader/[wallet]/page.tsx
 import type { Metadata } from "next";
 import TraderClient from "./TraderClient";
+import { Footer } from "@/components/layout/Footer";
 
 // In Next.js 14 on Vercel, params must be typed as a Promise and awaited.
 // Not doing this causes params.wallet to be undefined at runtime.
@@ -20,5 +21,10 @@ export async function generateMetadata({
 
 export default async function TraderPage({ params }: PageProps) {
   const { wallet } = await params;
-  return <TraderClient wallet={wallet} />;
+  return (
+    <>
+      <TraderClient wallet={wallet} />
+      <Footer wallet={wallet} isTrader={true} />
+    </>
+  );
 }

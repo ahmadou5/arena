@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { SolanaProvider } from "@/providers/WalletProvider";
 import AuthProvider from "@/providers/AuthProvider";
+import { Footer } from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
   title: "Arena Protocol — Competitive Trading Seasons on Solana",
@@ -32,7 +33,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[#f7f6f2]">
         <SolanaProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <Footer />
+          </AuthProvider>
         </SolanaProvider>
       </body>
     </html>
