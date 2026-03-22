@@ -99,7 +99,7 @@ export default function MyStatsCard({
 }: MyStatsCardProps) {
   const [stats, setStats] = useState<TraderStats | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { signIn } = useAuth();
+  const { openModal } = useAuth();
 
   useEffect(() => {
     // Reset and skip fetch when wallet is absent — no synchronous setState
@@ -140,7 +140,7 @@ export default function MyStatsCard({
           </p>
         </div>
         <button
-          onClick={() => signIn()}
+          onClick={() => openModal()}
           className="font-mono text-xs uppercase tracking-widest px-5 py-2.5 bg-[#c8a96e] text-[#2e3d47] font-semibold hover:bg-[#d4b87a] transition-colors"
         >
           Connect

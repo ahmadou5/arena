@@ -2,6 +2,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import DivisionBadge from "./DivisionBadge";
+import { useAuth } from "@/providers/AuthProvider";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,7 @@ function PanelTab({
 // ── Connect prompt ────────────────────────────────────────────────────────────
 
 function ConnectPrompt({ onClose }: { onClose: () => void }) {
+  const { openModal } = useAuth();
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 px-8 py-12 text-center">
       <div className="w-16 h-16 border-2 border-[#2e3d47] flex items-center justify-center">
@@ -202,7 +204,7 @@ function ConnectPrompt({ onClose }: { onClose: () => void }) {
       </div>
       <button
         className="font-mono text-xs uppercase tracking-widest px-6 py-3 bg-[#2e3d47] text-white hover:bg-[#3e5060] transition-colors w-full"
-        onClick={() => document.getElementById("connect-wallet-btn")?.click()}
+        onClick={() => openModal()}
       >
         Connect
       </button>
