@@ -1,7 +1,6 @@
-// src/app/api/trader/[wallet]/route.ts
 // GET /api/trader/:wallet — public trader profile
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -112,18 +111,14 @@ export async function GET(
     currentSeason = {
       seasonNumber: activeSeason.seasonNumber,
       name: activeSeason.name,
-      ...(summary
-        ? {
-            totalCps: Number(summary.totalCps),
-            rankInDivision: summary.rankInDivision,
-            division: summary.division,
-            totalTrades: summary.totalTrades,
-            winRate:
-              summary.totalTrades > 0
-                ? summary.winningTrades / summary.totalTrades
-                : 0,
-          }
-        : null),
+      // Always include these fields — UI depends on them being present, even as 0
+      totalCps: summary ? Number(summary.totalCps) : 0,
+      rankInDivision: summary?.rankInDivision ?? null,
+      totalTrades: summary?.totalTrades ?? 0,
+      winRate:
+        summary && summary.totalTrades > 0
+          ? summary.winningTrades / summary.totalTrades
+          : 0,
     };
   }
 

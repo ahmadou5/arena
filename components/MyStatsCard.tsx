@@ -1,6 +1,16 @@
 // src/components/MyStatsCard.tsx
 "use client";
-import { useState, useEffect, useTransition } from "react";
+import { useAuth } from "@/providers/AuthProvider";
+import { useState, useEffect } from "react";
+
+interface CurrentSeason {
+  seasonNumber: number;
+  name: string;
+  totalCps: number;
+  rankInDivision: number | null;
+  totalTrades: number;
+  winRate: number;
+}
 
 interface TraderStats {
   wallet: string;
@@ -9,12 +19,7 @@ interface TraderStats {
   divisionName: string;
   streak: { streakDays: number; lastStreakDate: string | null } | null;
   squad: { name: string; rank: number | null; division: number } | null;
-  currentSeason: {
-    totalCps: number;
-    rankInDivision: number | null;
-    totalTrades: number;
-    winRate: number;
-  } | null;
+  currentSeason: CurrentSeason | null;
 }
 
 const DIV_COLORS: Record<number, string> = {
@@ -24,6 +29,19 @@ const DIV_COLORS: Record<number, string> = {
   4: "#c8a06e",
   5: "#8a9a8a",
 };
+
+// Safe number formatters — never produce NaN
+function fmtCps(n: number | undefined | null): string {
+  if (n === undefined || n === null || isNaN(n)) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
+  return n?.toFixed(0);
+}
+
+function fmtPct(n: number | undefined | null): string {
+  if (n === undefined || n === null || isNaN(n)) return "0%";
+  return `${(n * 100)?.toFixed(0)}%`;
+}
 
 function StatBlock({
   label,
@@ -57,12 +75,12 @@ function StatBlock({
 function SkeletonCard() {
   return (
     <div className="bg-white border border-[#dddbd5] p-6">
-      <div className="skeleton h-4 w-32 mb-4 rounded" />
+      <div className="h-4 w-32 mb-4 rounded bg-[#e8e6e0] animate-pulse" />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="space-y-2">
-            <div className="skeleton h-2 w-16 rounded" />
-            <div className="skeleton h-7 w-20 rounded" />
+            <div className="h-2 w-16 rounded bg-[#e8e6e0] animate-pulse" />
+            <div className="h-7 w-20 rounded bg-[#e8e6e0] animate-pulse" />
           </div>
         ))}
       </div>
@@ -80,28 +98,33 @@ export default function MyStatsCard({
   seasonNumber,
 }: MyStatsCardProps) {
   const [stats, setStats] = useState<TraderStats | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const { signIn } = useAuth();
 
   useEffect(() => {
+    // Reset and skip fetch when wallet is absent — no synchronous setState
     if (!wallet) return;
-    startTransition(() => {
-      setLoading(true);
-      setError(null);
-    });
+
+    let cancelled = false;
+
     fetch(`/api/trader/${wallet}`)
       .then((r) => r.json())
       .then((d) => {
-        startTransition(() => {
-          if (d.ok) setStats(d);
-          else setError("Could not load your stats");
-        });
+        if (cancelled) return;
+        if (d.ok) setStats(d);
+        else setError("Could not load your stats");
       })
-      .catch(() => startTransition(() => setError("Network error")))
-      .finally(() => startTransition(() => setLoading(false)));
+      .catch(() => {
+        if (!cancelled) setError("Network error");
+      });
+
+    // Cleanup: ignore stale response if wallet changes mid-flight
+    return () => {
+      cancelled = true;
+    };
   }, [wallet]);
 
+  // ── Not connected ─────────────────────────────────────────────────────────
   if (!wallet) {
     return (
       <div className="bg-[#2e3d47] border border-[#2e3d47] p-6 flex items-center justify-between">
@@ -116,15 +139,20 @@ export default function MyStatsCard({
             See your rank, CPS, streak, and squad
           </p>
         </div>
-        <button className="font-mono text-xs uppercase tracking-widest px-5 py-2.5 bg-[#c8a96e] text-[#2e3d47] font-semibold hover:bg-[#d4b87a] transition-colors">
+        <button
+          onClick={() => signIn()}
+          className="font-mono text-xs uppercase tracking-widest px-5 py-2.5 bg-[#c8a96e] text-[#2e3d47] font-semibold hover:bg-[#d4b87a] transition-colors"
+        >
           Connect
         </button>
       </div>
     );
   }
 
-  if (loading) return <SkeletonCard />;
+  // ── Loading: wallet set but no data yet ──────────────────────────────────
+  if (wallet && !stats && !error) return <SkeletonCard />;
 
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (error || !stats) {
     return (
       <div className="bg-white border border-[#dddbd5] p-6">
@@ -133,8 +161,17 @@ export default function MyStatsCard({
     );
   }
 
+  // ── Loaded ────────────────────────────────────────────────────────────────
   const cs = stats.currentSeason;
   const divColor = DIV_COLORS[stats.division] ?? "#8a9a8a";
+
+  // Safe values — never undefined/NaN reaching the UI
+  const cps = cs?.totalCps ?? 0;
+  const winRate = cs?.winRate ?? 0;
+  const totalTrades = cs?.totalTrades ?? 0;
+  const rank = cs?.rankInDivision ?? null;
+  const streakDays = stats.streak?.streakDays ?? 0;
+  const hasTrades = totalTrades > 0;
 
   return (
     <div className="bg-white border border-[#dddbd5]">
@@ -150,7 +187,7 @@ export default function MyStatsCard({
           </span>
         </div>
         <span
-          className="font-display font-bold text-sm tracking-wide px-3 py-1 text-white text-xs"
+          className="font-display font-bold text-xs tracking-wide px-3 py-1 text-white"
           style={{
             fontFamily: "'Barlow Condensed', sans-serif",
             background: divColor,
@@ -169,35 +206,27 @@ export default function MyStatsCard({
         />
         <StatBlock
           label="Season Rank"
-          value={cs?.rankInDivision ? `#${cs.rankInDivision}` : "—"}
-          sub={cs ? `in ${stats.divisionName}` : undefined}
+          value={rank ? `#${rank}` : "—"}
+          sub={rank ? `in ${stats.divisionName}` : "unranked"}
         />
         <StatBlock
           label="CPS"
-          value={
-            cs
-              ? cs.totalCps >= 1_000_000
-                ? `${(cs.totalCps / 1_000_000)?.toFixed(2)}M`
-                : cs.totalCps?.toFixed(0)
-              : "—"
-          }
+          value={hasTrades ? fmtCps(cps) : "—"}
           sub="this season"
         />
         <StatBlock
           label="Win Rate"
-          value={cs ? `${(cs.winRate * 100)?.toFixed(0)}%` : "—"}
-          sub={cs ? `${cs.totalTrades} trades` : undefined}
+          value={hasTrades ? fmtPct(winRate) : "—"}
+          sub={hasTrades ? `${totalTrades} trades` : "no trades yet"}
           accent={
-            cs && cs.winRate >= 0.5 ? "#3d7a5c" : cs ? "#9b3d3d" : undefined
+            hasTrades ? (winRate >= 0.5 ? "#3d7a5c" : "#9b3d3d") : undefined
           }
         />
         <StatBlock
           label="Streak"
-          value={stats.streak?.streakDays ?? 0}
+          value={streakDays > 0 ? `${streakDays}d` : "—"}
           sub="days"
-          accent={
-            stats.streak && stats.streak.streakDays >= 7 ? "#c8a96e" : undefined
-          }
+          accent={streakDays >= 7 ? "#c8a96e" : undefined}
         />
         <div className="flex flex-col gap-0.5">
           <span className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest">
