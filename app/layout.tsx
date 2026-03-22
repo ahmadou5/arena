@@ -33,10 +33,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[#f7f6f2]">
         <SolanaProvider>
-          <AuthProvider>
-            {children}
-            <Footer />
-          </AuthProvider>
+          <AuthProvider>{children}</AuthProvider>
         </SolanaProvider>
       </body>
     </html>

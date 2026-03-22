@@ -10,6 +10,7 @@ import MidSeasonEvents from "@/components/MidSeasonEvents";
 import SeasonLobbyClient, {
   NavConnectButton,
 } from "@/components/SeasonLobbyClient";
+import { Footer } from "@/components/layout/Footer";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -337,6 +338,7 @@ export default async function SeasonLobby() {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   );
 }

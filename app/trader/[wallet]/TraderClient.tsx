@@ -541,24 +541,6 @@ export default function TraderClient({ wallet }: { wallet: string }) {
           </section>
         </main>
       )}
-
-      {/* Footer */}
-      {data && (
-        <footer className="border-t border-[#dddbd5] px-6 py-6 mt-4">
-          <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="font-display font-black text-sm text-[#2e3d47] tracking-tight"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-            >
-              ← Arena Protocol
-            </Link>
-            <span className="font-mono text-[10px] text-[#b0aea5]">
-              {shortWallet(data.wallet)}
-            </span>
-          </div>
-        </footer>
-      )}
     </div>
   );
 }
