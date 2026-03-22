@@ -945,7 +945,7 @@ export default function SquadPanel({
       {/* Trigger button — floating */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-5 py-3 bg-[#2e3d47] text-white shadow-lg hover:bg-[#3e5060] transition-all group"
+        className="fixed bottom-[68px] right-6 z-40 flex items-center gap-2.5 px-5 py-3 bg-[#2e3d47] text-white shadow-lg hover:bg-[#3e5060] transition-all group"
         style={{ boxShadow: "0 4px 20px rgba(46,61,71,0.35)" }}
       >
         <span className="text-base">◈</span>
