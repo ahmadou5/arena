@@ -5,6 +5,7 @@ import DivisionBadge from "@/components/DivisionBadge";
 import AchievementsWall from "@/components/AchievementsWall";
 import ARSparkline from "@/components/ARSparkline";
 import { prisma } from "@/lib/prisma";
+import CopyButton from "@/components/CopyButton";
 import Link from "next/link";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -228,9 +229,9 @@ export async function generateMetadata({
 
 function fmtCps(n: number | null) {
   if (n === null) return "—";
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000)?.toFixed(2)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000)?.toFixed(1)}K`;
-  return n?.toFixed(0);
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toFixed(0);
 }
 
 function shortWallet(w: string) {
@@ -261,10 +262,9 @@ const DIV_COLORS: Record<number, string> = {
 export default async function TraderProfilePage({
   params,
 }: {
-  params: Promise<{ wallet: string }>;
+  params: { wallet: string };
 }) {
-  const { wallet } = await params;
-  const trader = await fetchTrader(wallet);
+  const trader = await fetchTrader(params.wallet);
   if (!trader) notFound();
 
   const divColor = DIV_COLORS[trader.division] ?? "#708090";
@@ -323,15 +323,7 @@ export default async function TraderProfilePage({
                     <span className="font-mono text-base text-[#2e3d47] tracking-wide break-all">
                       {shortWallet(trader.wallet)}
                     </span>
-                    <button
-                      onClick={() =>
-                        navigator.clipboard.writeText(trader.wallet)
-                      }
-                      className="font-mono text-[10px] text-[#8a8880] hover:text-[#2e3d47] uppercase tracking-wider transition-colors border border-[#dddbd5] px-2 py-1 hover:border-[#2e3d47]"
-                      title="Copy full wallet address"
-                    >
-                      copy
-                    </button>
+                    <CopyButton text={trader.wallet} />
                   </div>
 
                   {/* AR + trend */}
@@ -527,7 +519,6 @@ export default async function TraderProfilePage({
                   <Link
                     href="/"
                     className="font-mono text-[10px] uppercase tracking-widest text-[#2e3d47] border border-[#2e3d47] px-3 py-1.5 hover:bg-[#2e3d47] hover:text-white transition-colors"
-                    style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
                   >
                     Join a squad →
                   </Link>
