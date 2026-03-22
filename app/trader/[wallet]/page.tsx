@@ -24,7 +24,6 @@ export default async function TraderPage({ params }: PageProps) {
   return (
     <>
       <TraderClient wallet={wallet} />
-      <Footer wallet={wallet} isTrader={true} />
     </>
   );
 }
