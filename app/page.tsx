@@ -11,6 +11,7 @@ import SeasonLobbyClient, {
   NavConnectButton,
 } from "@/components/SeasonLobbyClient";
 import { Footer } from "@/components/layout/Footer";
+import BottomBar from "@/components/BottomBar";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ export default async function SeasonLobby() {
       />
 
       {/* ── Main content ── */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-[44px] py-8 space-y-10">
         {/* ── SECTION 1: Season Header ── */}
         <section>
           <SectionLabel>Active Season</SectionLabel>
@@ -338,7 +339,7 @@ export default async function SeasonLobby() {
           </div>
         </section>
       </main>
-      <Footer />
+      <BottomBar />
     </div>
   );
 }
