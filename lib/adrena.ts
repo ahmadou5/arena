@@ -179,3 +179,120 @@ export async function getLiquidityInfo(): Promise<LiquidityInfo> {
 export async function getAPR(type = "alp", lock = 0): Promise<APRInfo> {
   return apiGet<APRInfo>("/apr", { type, lock });
 }
+
+// ── Trading transaction types ─────────────────────────────────────────────────
+
+export interface TradeQuote {
+  collateralAmount: number;
+  collateralToken: string;
+  token: string;
+  leverage?: number;
+  size?: number;
+  entryPrice?: number;
+  liquidationPrice?: number;
+  fee: number;
+  takeProfit?: number | null;
+  stopLoss?: number | null;
+  percentage?: number;
+}
+
+export interface TradeTransaction {
+  quote: TradeQuote;
+  transaction: string; // base64-encoded serialized Solana transaction
+}
+
+export interface AdrenaTradeResponse {
+  success: boolean;
+  error: string | null;
+  data: TradeTransaction | null;
+}
+
+// ── Trading API functions ─────────────────────────────────────────────────────
+// All return { quote, transaction } — caller must sign + submit the transaction.
+
+export async function openLong(params: {
+  account: string;
+  collateralAmount: number;
+  collateralTokenSymbol: string;
+  tokenSymbol: string;
+  leverage: number;
+  takeProfit?: number;
+  stopLoss?: number;
+}): Promise<AdrenaTradeResponse> {
+  return apiGet<AdrenaTradeResponse>("/open-long", {
+    account: params.account,
+    collateralAmount: params.collateralAmount,
+    collateralTokenSymbol: params.collateralTokenSymbol,
+    tokenSymbol: params.tokenSymbol,
+    leverage: params.leverage,
+    ...(params.takeProfit ? { takeProfit: params.takeProfit } : {}),
+    ...(params.stopLoss ? { stopLoss: params.stopLoss } : {}),
+  });
+}
+
+export async function openShort(params: {
+  account: string;
+  collateralAmount: number;
+  collateralTokenSymbol: string;
+  tokenSymbol: string;
+  leverage: number;
+  takeProfit?: number;
+  stopLoss?: number;
+}): Promise<AdrenaTradeResponse> {
+  return apiGet<AdrenaTradeResponse>("/open-short", {
+    account: params.account,
+    collateralAmount: params.collateralAmount,
+    collateralTokenSymbol: params.collateralTokenSymbol,
+    tokenSymbol: params.tokenSymbol,
+    leverage: params.leverage,
+    ...(params.takeProfit ? { takeProfit: params.takeProfit } : {}),
+    ...(params.stopLoss ? { stopLoss: params.stopLoss } : {}),
+  });
+}
+
+export async function closeLong(params: {
+  account: string;
+  collateralTokenSymbol: string;
+  tokenSymbol: string;
+  percentage?: number;
+}): Promise<AdrenaTradeResponse> {
+  return apiGet<AdrenaTradeResponse>("/close-long", {
+    account: params.account,
+    collateralTokenSymbol: params.collateralTokenSymbol,
+    tokenSymbol: params.tokenSymbol,
+    ...(params.percentage ? { percentage: params.percentage } : {}),
+  });
+}
+
+export async function closeShort(params: {
+  account: string;
+  collateralTokenSymbol: string;
+  tokenSymbol: string;
+  percentage?: number;
+}): Promise<AdrenaTradeResponse> {
+  return apiGet<AdrenaTradeResponse>("/close-short", {
+    account: params.account,
+    collateralTokenSymbol: params.collateralTokenSymbol,
+    tokenSymbol: params.tokenSymbol,
+    ...(params.percentage ? { percentage: params.percentage } : {}),
+  });
+}
+
+export async function getPoolHighLevelStats(): Promise<{
+  daily_volume_usd: number;
+  total_volume_usd: number;
+  daily_fee_usd: number;
+  total_fee_usd: number;
+  pool_name: string;
+  start_date: string;
+  end_date: string;
+}> {
+  const res = await apiGet<{ success: boolean; data: Record<string, unknown> }>(
+    "/pool-high-level-stats",
+  );
+  return res.data as ReturnType<typeof getPoolHighLevelStats> extends Promise<
+    infer T
+  >
+    ? T
+    : never;
+}
