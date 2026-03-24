@@ -84,12 +84,12 @@ function XIcon() {
 
 const SOCIALS = [
   {
-    href: "https://github.com/orgs/AdrenaFoundation",
+    href: "https://github.com/ahmadou5/arena",
     icon: <GitHubIcon />,
     label: "GitHub",
   },
   {
-    href: "https://discord.gg/adrena",
+    href: "https://discord.com/invite/adrena",
     icon: <DiscordIcon />,
     label: "Discord",
   },
