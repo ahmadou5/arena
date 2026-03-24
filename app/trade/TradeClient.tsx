@@ -6,6 +6,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useAuth } from "@/providers/AuthProvider";
 import ConnectButton from "@/components/ConnectButton";
+import TradingChart from "@/components/TradingChart";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -187,9 +188,11 @@ function useTradeTx() {
 function TradeForm({
   wallet,
   isGauntlet,
+  onMarketChange,
 }: {
   wallet: string;
   isGauntlet: boolean;
+  onMarketChange?: (m: string) => void;
 }) {
   const { execute } = useTradeTx();
 
@@ -323,7 +326,10 @@ function TradeForm({
             </label>
             <select
               value={market}
-              onChange={(e) => setMarket(e.target.value)}
+              onChange={(e) => {
+                setMarket(e.target.value);
+                onMarketChange?.(e.target.value);
+              }}
               className="w-full font-mono text-sm px-3 py-2 border border-[#dddbd5] bg-white focus:outline-none focus:border-[#2e3d47] transition-colors"
             >
               {MARKETS.map((m) => (
@@ -502,8 +508,7 @@ function TradeForm({
         </button>
 
         <p className="font-mono text-[9px] text-[#b0aea5] text-center">
-          {`Quote refreshes automatically · CPS scored at close · No fees beyond
-          Adrena's`}
+          {`Quote refreshes automatically · CPS scored at close · No fees beyond Adrena's`}
         </p>
       </div>
     </div>
@@ -766,6 +771,7 @@ function RecentClosedTable({ positions }: { positions: ClosedPosition[] }) {
 export default function TradeClient() {
   const { wallet, status } = useAuth();
   const [data, setData] = useState<TradePageData | null>(null);
+  const [activeMarket, setActiveMarket] = useState("SOL");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Stable fetch function stored in a ref — never changes identity,
@@ -854,13 +860,24 @@ export default function TradeClient() {
         </div>
       )}
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-8 items-start">
-          {/* Left: Trade form */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* Top row: Chart + Trade form */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
+          {/* Chart */}
+          <div className="space-y-2">
+            <SectionLabel>{activeMarket}-PERP · Price Chart</SectionLabel>
+            <TradingChart symbol={activeMarket} />
+          </div>
+
+          {/* Trade form */}
           <div className="space-y-4">
             <SectionLabel>Open Position</SectionLabel>
             {status === "authenticated" && wallet ? (
-              <TradeForm wallet={wallet} isGauntlet={isGauntlet} />
+              <TradeForm
+                wallet={wallet}
+                isGauntlet={isGauntlet}
+                onMarketChange={setActiveMarket}
+              />
             ) : (
               <div className="bg-[#2e3d47] p-8 flex flex-col items-center gap-4 text-center">
                 <p
@@ -876,48 +893,52 @@ export default function TradeClient() {
               </div>
             )}
           </div>
+        </div>
 
-          {/* Right: Positions */}
-          <div className="space-y-8">
+        {/* Bottom row: Positions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section>
+            <SectionLabel
+              right={data ? `${data.openPositions.length} open` : undefined}
+            >
+              Open Positions
+            </SectionLabel>
             {wallet ? (
               <>
-                <section>
-                  <SectionLabel
-                    right={
-                      data ? `${data.openPositions.length} open` : undefined
-                    }
-                  >
-                    Open Positions
-                  </SectionLabel>
-                  <OpenPositionsTable
-                    positions={data?.openPositions ?? []}
-                    wallet={wallet}
-                    onRefresh={() => runRef.current()}
-                  />
-                  <p className="font-mono text-[9px] text-[#b0aea5] mt-2">
-                    Auto-refreshes every 60s · Close button sends transaction
-                    directly to Solana
-                  </p>
-                </section>
-                <section>
-                  <SectionLabel
-                    right={
-                      data ? `last ${data.recentClosed.length}` : undefined
-                    }
-                  >
-                    Recent Closed — CPS Earned
-                  </SectionLabel>
-                  <RecentClosedTable positions={data?.recentClosed ?? []} />
-                </section>
+                <OpenPositionsTable
+                  positions={data?.openPositions ?? []}
+                  wallet={wallet}
+                  onRefresh={() => runRef.current()}
+                />
+                <p className="font-mono text-[9px] text-[#b0aea5] mt-2">
+                  Auto-refreshes every 60s · Close button sends transaction to
+                  Solana
+                </p>
               </>
             ) : (
-              <div className="bg-white border border-[#dddbd5] p-8 text-center">
+              <div className="bg-white border border-[#dddbd5] px-5 py-8 text-center">
                 <p className="font-mono text-xs text-[#b0aea5] uppercase tracking-widest">
-                  Connect wallet to see your positions
+                  Connect wallet to see positions
                 </p>
               </div>
             )}
-          </div>
+          </section>
+          <section>
+            <SectionLabel
+              right={data ? `last ${data.recentClosed.length}` : undefined}
+            >
+              Recent Closed — CPS Earned
+            </SectionLabel>
+            {wallet ? (
+              <RecentClosedTable positions={data?.recentClosed ?? []} />
+            ) : (
+              <div className="bg-white border border-[#dddbd5] px-5 py-8 text-center">
+                <p className="font-mono text-xs text-[#b0aea5] uppercase tracking-widest">
+                  Connect wallet to see history
+                </p>
+              </div>
+            )}
+          </section>
         </div>
       </main>
     </div>
