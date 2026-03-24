@@ -84,12 +84,12 @@ function XIcon() {
 
 const SOCIALS = [
   {
-    href: "https://github.com/ahmadou/arena",
+    href: "https://github.com/orgs/AdrenaFoundation",
     icon: <GitHubIcon />,
     label: "GitHub",
   },
   {
-    href: "https://discord.com/invite/adrena",
+    href: "https://discord.gg/adrena",
     icon: <DiscordIcon />,
     label: "Discord",
   },
@@ -118,6 +118,12 @@ export default function BottomBar() {
           </Link>
           <span className="w-px h-3 bg-[#dddbd5]" />
           <div className="hidden sm:flex items-center gap-4">
+            <Link
+              href="/trade"
+              className="font-mono text-[10px] text-[#8a8880] hover:text-[#2e3d47] uppercase tracking-widest transition-colors"
+            >
+              Trade
+            </Link>
             <a
               href="https://adrena.trade"
               target="_blank"
