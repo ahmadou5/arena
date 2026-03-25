@@ -111,7 +111,7 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         ref={containerRef}
         className="tradingview-widget-container w-full"
         style={{
-          height: "clamp(300px, 40vh, 420px)",
+          height: "clamp(300px, 40vh, 700px)",
           background: "#f7f6f2",
         }}
       />
