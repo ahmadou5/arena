@@ -153,7 +153,6 @@ function useTradeTx() {
       onStatus("signing");
       const txBytes = Buffer.from(txBase64, "base64");
 
-      // Try VersionedTransaction first, fall back to legacy Transaction
       let signed: Transaction | VersionedTransaction;
       try {
         const vtx = VersionedTransaction.deserialize(txBytes);
@@ -198,20 +197,19 @@ function TradeForm({
 
   const [market, setMarket] = useState("SOL");
   const [side, setSide] = useState<"long" | "short">("long");
-  const [collateral, setCollateral] = useState(50);
-  const [leverage, setLeverage] = useState(2);
+  const [collateral, setCollateral] = useState(0);
+  const [leverage, setLeverage] = useState(5);
   const [takeProfit, setTakeProfit] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [quote, setQuote] = useState<TradeQuote | null>(null);
   const [txStatus, setTxStatus] = useState<TxStatus>("idle");
   const [txError, setTxError] = useState<string | null>(null);
   const [txSig, setTxSig] = useState<string | null>(null);
-  const [txPending, setTxPending] = useState<string | null>(null); // base64 tx waiting to sign
+  const [txPending, setTxPending] = useState<string | null>(null);
 
   const mkt = MARKETS.find((m) => m.symbol === market) ?? MARKETS[0];
   const collateralToken = side === "short" ? "USDC" : mkt.collateral;
 
-  // Fetch quote whenever inputs change
   const fetchQuote = useCallback(async () => {
     setQuote(null);
     setTxError(null);
@@ -254,7 +252,6 @@ function TradeForm({
     collateralToken,
   ]);
 
-  // Debounce quote fetching
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -269,12 +266,11 @@ function TradeForm({
     setTxError(null);
     setTxSig(null);
     try {
-      const sig = await execute(txPending, (status, detail) => {
+      await execute(txPending, (status, detail) => {
         setTxStatus(status);
         if (status === "confirmed" && detail) setTxSig(detail);
         if (status === "error" && detail) setTxError(detail);
       });
-      // Refresh quote after trade
       setTimeout(fetchQuote, 2000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -286,9 +282,8 @@ function TradeForm({
     }
   };
 
-  // Estimated CPS
   const posSize = collateral * leverage;
-  const estPnl = posSize * 0.05; // assume 5% profit for preview
+  const estPnl = posSize * 0.05;
   const estFees = quote?.fee ?? posSize * 0.001;
   const estHours = 24;
   const estCps = calculateRAR(estPnl, estFees, collateral, estHours);
@@ -515,7 +510,7 @@ function TradeForm({
   );
 }
 
-// ── Close position button ──────────────────────────────────────────────────────
+// ── Close position button ─────────────────────────────────────────────────────
 
 function CloseButton({
   position,
@@ -774,16 +769,11 @@ export default function TradeClient() {
   const [activeMarket, setActiveMarket] = useState("SOL");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Stable fetch function stored in a ref — never changes identity,
-  // reads latest wallet from walletRef, so no stale closures and no
-  // setState in any effect body (it only runs inside .then callbacks).
   const walletRef = useRef(wallet);
   const runRef = useRef<() => void>(() => {});
 
-  // Keep walletRef current — plain ref sync, no setState involved
   walletRef.current = wallet;
 
-  // Build the stable run function once and store in runRef
   runRef.current = () => {
     const url = walletRef.current
       ? `/api/trade?wallet=${walletRef.current}`
@@ -796,18 +786,15 @@ export default function TradeClient() {
       .catch(() => {});
   };
 
-  // Effect only wires up the interval — no setState, no function calls
   useEffect(() => {
     runRef.current();
     intervalRef.current = setInterval(() => runRef.current(), 60_000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-    // Empty deps: interval set up once, runRef.current always has latest fn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-trigger fetch when wallet connects / changes
   useEffect(() => {
     runRef.current();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -862,14 +849,18 @@ export default function TradeClient() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Top row: Chart + Trade form */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
-          {/* Chart */}
-          <div className="space-y-2">
+        {/* CHANGED: items-start → lg:items-stretch so both columns share the same height */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 lg:items-stretch">
+          {/* Chart column — flex-col + h-full passes height down to TradingChart */}
+          <div className="flex flex-col">
             <SectionLabel>{activeMarket}-PERP · Price Chart</SectionLabel>
-            <TradingChart symbol={activeMarket} />
+            {/* flex-1 makes the chart fill all remaining column height */}
+            <div className="flex-1">
+              <TradingChart symbol={activeMarket} />
+            </div>
           </div>
 
-          {/* Trade form */}
+          {/* Trade form column */}
           <div className="space-y-4">
             <SectionLabel>Open Position</SectionLabel>
             {status === "authenticated" && wallet ? (

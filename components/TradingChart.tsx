@@ -66,9 +66,12 @@ export default function TradingChart({ symbol }: TradingChartProps) {
   }, [tvSymbol, activeInterval]);
 
   return (
+    // h-full fills whatever height the parent grid cell gives it
+    // min-h-[320px] keeps it usable on mobile where the grid is single column
     <div
-      className="w-full flex flex-col"
+      className="w-full h-full flex flex-col"
       style={{
+        minHeight: "clamp(320px, 50vw, 480px)",
         background: "#f7f6f2",
         border: "1px solid #dddbd5",
         borderRadius: 8,
@@ -106,14 +109,11 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         </div>
       </div>
 
-      {/* Widget — 300px on mobile, 420px on md+, never overflows */}
+      {/* Widget — flex-1 fills all remaining height between header and footer */}
       <div
         ref={containerRef}
-        className="tradingview-widget-container w-full"
-        style={{
-          height: "clamp(300px, 40vh, 700px)",
-          background: "#f7f6f2",
-        }}
+        className="tradingview-widget-container flex-1"
+        style={{ width: "100%", background: "#f7f6f2" }}
       />
 
       {/* Footer */}
