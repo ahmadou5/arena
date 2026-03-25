@@ -75,7 +75,7 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         overflow: "hidden",
         // Fill the available vertical space — on large screens this gives a
         // tall, immersive chart without needing a fixed pixel value
-        height: "calc(100vh - 140px)",
+        height: "calc(100vh - 140px/2)",
         minHeight: 600,
       }}
     >
