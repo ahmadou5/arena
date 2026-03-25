@@ -73,14 +73,17 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         border: "1px solid #dddbd5",
         borderRadius: 8,
         overflow: "hidden",
+        // Fill the available vertical space — on large screens this gives a
+        // tall, immersive chart without needing a fixed pixel value
+        height: "calc(100vh - 140px)",
+        minHeight: 600,
       }}
     >
-      {/* Header bar */}
+      {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-2.5"
+        className="flex items-center justify-between px-4 py-2.5 shrink-0"
         style={{ borderBottom: "1px solid #dddbd5", background: "#ffffff" }}
       >
-        {/* Symbol label */}
         <span
           className="font-mono text-xs font-semibold uppercase tracking-widest"
           style={{ color: "#2e3d47" }}
@@ -108,16 +111,16 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         </div>
       </div>
 
-      {/* TradingView widget */}
+      {/* TradingView widget — flex-1 makes it fill all remaining height */}
       <div
         ref={containerRef}
-        className="tradingview-widget-container"
-        style={{ height: 460, width: "100%", background: "#f7f6f2" }}
+        className="tradingview-widget-container flex-1"
+        style={{ width: "100%", background: "#f7f6f2" }}
       />
 
-      {/* Footer attribution */}
+      {/* Footer */}
       <div
-        className="flex items-center justify-end px-4 py-1.5"
+        className="flex items-center justify-end px-4 py-1.5 shrink-0"
         style={{ borderTop: "1px solid #dddbd5", background: "#ffffff" }}
       >
         <a
