@@ -6,7 +6,6 @@ interface TradingChartProps {
   symbol: string;
 }
 
-// Map our internal symbols to TradingView symbols
 const TV_SYMBOL_MAP: Record<string, string> = {
   SOL: "BINANCE:SOLUSDT",
   BTC: "BINANCE:BTCUSDT",
@@ -25,14 +24,13 @@ const INTERVALS = [
 
 export default function TradingChart({ symbol }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [activeInterval, setActiveInterval] = useState("60"); // default 1h
+  const [activeInterval, setActiveInterval] = useState("60");
 
   const tvSymbol = TV_SYMBOL_MAP[symbol] ?? "BINANCE:SOLUSDT";
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Clear any previous widget instance before injecting a new one
     containerRef.current.innerHTML = "";
 
     const script = document.createElement("script");
@@ -45,11 +43,11 @@ export default function TradingChart({ symbol }: TradingChartProps) {
       symbol: tvSymbol,
       interval: activeInterval,
       timezone: "Etc/UTC",
-      theme: "dark",
-      style: "1", // 1 = Candlestick
+      theme: "light",
+      style: "1",
       locale: "en",
-      backgroundColor: "#253248",
-      gridColor: "#334158",
+      backgroundColor: "#f7f6f2",
+      gridColor: "#e8e6e0",
       hide_top_toolbar: false,
       hide_legend: false,
       save_image: false,
@@ -68,41 +66,66 @@ export default function TradingChart({ symbol }: TradingChartProps) {
   }, [tvSymbol, activeInterval]);
 
   return (
-    <div className="w-full border border-[#485c7b] rounded-lg overflow-hidden bg-[#253248] flex flex-col">
-      {/* Interval selector tabs */}
-      <div className="flex items-center gap-1 px-3 py-2 border-b border-[#485c7b]">
-        <span className="font-mono text-[10px] text-[#8a9aaa] uppercase tracking-widest mr-2">
-          Interval
+    <div
+      className="w-full flex flex-col"
+      style={{
+        background: "#f7f6f2",
+        border: "1px solid #dddbd5",
+        borderRadius: 8,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header bar */}
+      <div
+        className="flex items-center justify-between px-4 py-2.5"
+        style={{ borderBottom: "1px solid #dddbd5", background: "#ffffff" }}
+      >
+        {/* Symbol label */}
+        <span
+          className="font-mono text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "#2e3d47" }}
+        >
+          {symbol}-PERP · Price Chart
         </span>
-        {INTERVALS.map((iv) => (
-          <button
-            key={iv.value}
-            onClick={() => setActiveInterval(iv.value)}
-            className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 transition-colors rounded-sm ${
-              activeInterval === iv.value
-                ? "bg-[#485c7b] text-white"
-                : "text-[#8a9aaa] hover:text-white hover:bg-[#334158]"
-            }`}
-          >
-            {iv.label}
-          </button>
-        ))}
+
+        {/* Interval tabs */}
+        <div className="flex items-center gap-0.5">
+          {INTERVALS.map((iv) => (
+            <button
+              key={iv.value}
+              onClick={() => setActiveInterval(iv.value)}
+              className="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 transition-colors"
+              style={{
+                borderRadius: 4,
+                background:
+                  activeInterval === iv.value ? "#2e3d47" : "transparent",
+                color: activeInterval === iv.value ? "#ffffff" : "#8a8880",
+              }}
+            >
+              {iv.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Widget mount point — explicit height is required */}
+      {/* TradingView widget */}
       <div
         ref={containerRef}
         className="tradingview-widget-container"
-        style={{ height: 480, width: "100%" }}
+        style={{ height: 460, width: "100%", background: "#f7f6f2" }}
       />
 
-      {/* TradingView attribution — required by their ToS */}
-      <div className="px-3 py-1.5 border-t border-[#334158] flex items-center justify-end">
+      {/* Footer attribution */}
+      <div
+        className="flex items-center justify-end px-4 py-1.5"
+        style={{ borderTop: "1px solid #dddbd5", background: "#ffffff" }}
+      >
         <a
           href="https://www.tradingview.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-mono text-[9px] text-[#485c7b] hover:text-[#8a9aaa] transition-colors"
+          className="font-mono transition-colors"
+          style={{ fontSize: 9, color: "#b0aea5" }}
         >
           Powered by TradingView
         </a>
