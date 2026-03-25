@@ -1,159 +1,112 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  createChart,
-  CrosshairMode,
-  ColorType,
-  CandlestickSeries,
-  HistogramSeries,
-  type IChartApi,
-  type Time,
-} from "lightweight-charts";
 
 interface TradingChartProps {
   symbol: string;
 }
 
+// Map our internal symbols to TradingView symbols
+const TV_SYMBOL_MAP: Record<string, string> = {
+  SOL: "BINANCE:SOLUSDT",
+  BTC: "BINANCE:BTCUSDT",
+  ETH: "BINANCE:ETHUSDT",
+  BONK: "BINANCE:BONKUSDT",
+  JTO: "BINANCE:JTOUSDT",
+};
+
+const INTERVALS = [
+  { label: "5m", value: "5" },
+  { label: "15m", value: "15" },
+  { label: "1h", value: "60" },
+  { label: "4h", value: "240" },
+  { label: "1d", value: "1D" },
+];
+
 export default function TradingChart({ symbol }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<any>(null);
-  const volumeSeriesRef = useRef<any>(null);
+  const [activeInterval, setActiveInterval] = useState("60"); // default 1h
 
-  const [loading, setLoading] = useState(true);
+  const tvSymbol = TV_SYMBOL_MAP[symbol] ?? "BINANCE:SOLUSDT";
 
-  // ── 1. Setup Chart Instance ────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const chart = createChart(containerRef.current, {
-      // FIX 1: width AND height must be set explicitly — the container div
-      // has no intrinsic height, so lightweight-charts renders invisible.
-      width: containerRef.current.clientWidth,
-      height: 500,
-      layout: {
-        background: { type: ColorType.Solid, color: "#253248" },
-        textColor: "rgba(255, 255, 255, 0.9)",
-      },
-      grid: {
-        vertLines: { color: "#334158" },
-        horzLines: { color: "#334158" },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-      },
-      rightPriceScale: {
-        borderColor: "#485c7b",
-      },
-      timeScale: {
-        borderColor: "#485c7b",
-        timeVisible: true,
-      },
+    // Clear any previous widget instance before injecting a new one
+    containerRef.current.innerHTML = "";
+
+    const script = document.createElement("script");
+    script.src =
+      "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol: tvSymbol,
+      interval: activeInterval,
+      timezone: "Etc/UTC",
+      theme: "dark",
+      style: "1", // 1 = Candlestick
+      locale: "en",
+      backgroundColor: "#253248",
+      gridColor: "#334158",
+      hide_top_toolbar: false,
+      hide_legend: false,
+      save_image: false,
+      calendar: false,
+      hide_volume: false,
+      support_host: "https://www.tradingview.com",
     });
 
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: "#26a69a",
-      downColor: "#ef5350",
-      borderVisible: false,
-      wickUpColor: "#26a69a",
-      wickDownColor: "#ef5350",
-    });
-
-    // FIX 2: Remove custom priceScaleId: "volume-pane" — referencing a
-    // non-existent named scale silently breaks rendering in v4.
-    // Use priceScaleId: "" to overlay on the main pane, then call
-    // priceScale() directly on the series to set scaleMargins.
-    const volumeSeries = chart.addSeries(HistogramSeries, {
-      color: "#385263",
-      priceFormat: { type: "volume" },
-      priceScaleId: "", // overlay on the main price pane
-    });
-
-    volumeSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 },
-    });
-
-    chartRef.current = chart;
-    candleSeriesRef.current = candleSeries;
-    volumeSeriesRef.current = volumeSeries;
-
-    const handleResize = () => {
-      if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: containerRef.current.clientWidth,
-        });
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
+    containerRef.current.appendChild(script);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.remove();
-    };
-  }, []);
-
-  // ── 2. Data Fetching Logic ─────────────────────────────────────────────────
-  useEffect(() => {
-    async function fetchChartData() {
-      if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
-
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/trade/chart?symbol=${symbol}&interval=1h&limit=150`,
-        );
-        const d = await res.json();
-
-        if (d.ok && Array.isArray(d.candles)) {
-          const prices = d.candles.map((c: any) => ({
-            time: c.time as Time,
-            open: Number(c.open),
-            high: Number(c.high),
-            low: Number(c.low),
-            close: Number(c.close),
-          }));
-
-          const volumes = d.candles.map((c: any) => ({
-            time: c.time as Time,
-            value: Number(c.volume),
-            color: c.close >= c.open ? "#26a69a50" : "#ef535050",
-          }));
-
-          candleSeriesRef.current.setData(prices);
-          volumeSeriesRef.current.setData(volumes);
-
-          chartRef.current?.timeScale().fitContent();
-        }
-      } catch (err) {
-        console.error("Error fetching chart:", err);
-      } finally {
-        setLoading(false);
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
       }
-    }
-
-    fetchChartData();
-    const interval = setInterval(fetchChartData, 60000);
-    return () => clearInterval(interval);
-  }, [symbol]);
+    };
+  }, [tvSymbol, activeInterval]);
 
   return (
-    <div className="w-full relative border border-[#485c7b] rounded-lg overflow-hidden bg-[#253248]">
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#253248]/60 z-10">
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-6 h-6 border-2 border-t-transparent border-white rounded-full animate-spin" />
-            <span className="font-mono text-[10px] text-white uppercase tracking-widest">
-              Loading {symbol}...
-            </span>
-          </div>
-        </div>
-      )}
-      {/* FIX 3: Set explicit height on the container div.
-          Without this, the div collapses to 0px and the chart is invisible
-          even though createChart() receives height:500. */}
-      <div ref={containerRef} className="w-full" style={{ height: 500 }} />
+    <div className="w-full border border-[#485c7b] rounded-lg overflow-hidden bg-[#253248] flex flex-col">
+      {/* Interval selector tabs */}
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-[#485c7b]">
+        <span className="font-mono text-[10px] text-[#8a9aaa] uppercase tracking-widest mr-2">
+          Interval
+        </span>
+        {INTERVALS.map((iv) => (
+          <button
+            key={iv.value}
+            onClick={() => setActiveInterval(iv.value)}
+            className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 transition-colors rounded-sm ${
+              activeInterval === iv.value
+                ? "bg-[#485c7b] text-white"
+                : "text-[#8a9aaa] hover:text-white hover:bg-[#334158]"
+            }`}
+          >
+            {iv.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Widget mount point — explicit height is required */}
+      <div
+        ref={containerRef}
+        className="tradingview-widget-container"
+        style={{ height: 480, width: "100%" }}
+      />
+
+      {/* TradingView attribution — required by their ToS */}
+      <div className="px-3 py-1.5 border-t border-[#334158] flex items-center justify-end">
+        <a
+          href="https://www.tradingview.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-mono text-[9px] text-[#485c7b] hover:text-[#8a9aaa] transition-colors"
+        >
+          Powered by TradingView
+        </a>
+      </div>
     </div>
   );
 }
