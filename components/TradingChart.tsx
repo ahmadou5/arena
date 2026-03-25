@@ -73,10 +73,6 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         border: "1px solid #dddbd5",
         borderRadius: 8,
         overflow: "hidden",
-        // Fill the available vertical space — on large screens this gives a
-        // tall, immersive chart without needing a fixed pixel value
-        height: "calc(100vh - 140px/2)",
-        minHeight: 600,
       }}
     >
       {/* Header */}
@@ -91,7 +87,6 @@ export default function TradingChart({ symbol }: TradingChartProps) {
           {symbol}-PERP · Price Chart
         </span>
 
-        {/* Interval tabs */}
         <div className="flex items-center gap-0.5">
           {INTERVALS.map((iv) => (
             <button
@@ -111,11 +106,14 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         </div>
       </div>
 
-      {/* TradingView widget — flex-1 makes it fill all remaining height */}
+      {/* Widget — 300px on mobile, 420px on md+, never overflows */}
       <div
         ref={containerRef}
-        className="tradingview-widget-container flex-1"
-        style={{ width: "100%", background: "#f7f6f2" }}
+        className="tradingview-widget-container w-full"
+        style={{
+          height: "clamp(300px, 40vh, 420px)",
+          background: "#f7f6f2",
+        }}
       />
 
       {/* Footer */}
