@@ -74,7 +74,7 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         minHeight: "clamp(320px, 50vw, 480px)",
         background: "#f7f6f2",
         border: "1px solid #dddbd5",
-        borderRadius: 8,
+        //borderRadius: 8,
         overflow: "hidden",
       }}
     >
