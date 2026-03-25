@@ -18,7 +18,6 @@ interface TradingChartProps {
 export default function TradingChart({ symbol }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  // Using 'any' here for the series refs prevents the "Property does not exist" TS error
   const candleSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
 
@@ -28,8 +27,9 @@ export default function TradingChart({ symbol }: TradingChartProps) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Initialize the chart
     const chart = createChart(containerRef.current, {
+      // FIX 1: width AND height must be set explicitly — the container div
+      // has no intrinsic height, so lightweight-charts renders invisible.
       width: containerRef.current.clientWidth,
       height: 500,
       layout: {
@@ -52,7 +52,6 @@ export default function TradingChart({ symbol }: TradingChartProps) {
       },
     });
 
-    // FIX: Using 'addSeries' with the Series Class is the v4 standard
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#26a69a",
       downColor: "#ef5350",
@@ -61,13 +60,17 @@ export default function TradingChart({ symbol }: TradingChartProps) {
       wickDownColor: "#ef5350",
     });
 
+    // FIX 2: Remove custom priceScaleId: "volume-pane" — referencing a
+    // non-existent named scale silently breaks rendering in v4.
+    // Use priceScaleId: "" to overlay on the main pane, then call
+    // priceScale() directly on the series to set scaleMargins.
     const volumeSeries = chart.addSeries(HistogramSeries, {
       color: "#385263",
       priceFormat: { type: "volume" },
-      priceScaleId: "volume-pane",
+      priceScaleId: "", // overlay on the main price pane
     });
 
-    chart.priceScale("volume-pane").applyOptions({
+    volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.8, bottom: 0 },
     });
 
@@ -94,7 +97,7 @@ export default function TradingChart({ symbol }: TradingChartProps) {
   // ── 2. Data Fetching Logic ─────────────────────────────────────────────────
   useEffect(() => {
     async function fetchChartData() {
-      if (!candleSeriesRef.current) return;
+      if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
 
       setLoading(true);
       try {
@@ -104,7 +107,6 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         const d = await res.json();
 
         if (d.ok && Array.isArray(d.candles)) {
-          // Format data for the chart
           const prices = d.candles.map((c: any) => ({
             time: c.time as Time,
             open: Number(c.open),
@@ -119,7 +121,6 @@ export default function TradingChart({ symbol }: TradingChartProps) {
             color: c.close >= c.open ? "#26a69a50" : "#ef535050",
           }));
 
-          // Pushing arrays to the series
           candleSeriesRef.current.setData(prices);
           volumeSeriesRef.current.setData(volumes);
 
@@ -135,7 +136,7 @@ export default function TradingChart({ symbol }: TradingChartProps) {
     fetchChartData();
     const interval = setInterval(fetchChartData, 60000);
     return () => clearInterval(interval);
-  }, [symbol]); // Runs when the market symbol changes
+  }, [symbol]);
 
   return (
     <div className="w-full relative border border-[#485c7b] rounded-lg overflow-hidden bg-[#253248]">
@@ -149,7 +150,10 @@ export default function TradingChart({ symbol }: TradingChartProps) {
           </div>
         </div>
       )}
-      <div ref={containerRef} className="w-full" />
+      {/* FIX 3: Set explicit height on the container div.
+          Without this, the div collapses to 0px and the chart is invisible
+          even though createChart() receives height:500. */}
+      <div ref={containerRef} className="w-full" style={{ height: 500 }} />
     </div>
   );
 }

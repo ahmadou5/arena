@@ -15,7 +15,6 @@ const SYMBOL_MAP: Record<string, string> = {
   JTO: "JTOUSDT",
 };
 
-// Binance interval → our interval labels
 const INTERVAL_MAP: Record<string, string> = {
   "5m": "5m",
   "15m": "15m",
@@ -40,9 +39,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const url = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=${limit}`;
+
+    // FIX: Route is already `force-dynamic`, so `next: { revalidate }` on
+    // the inner fetch conflicts and can cause stale/missing responses.
+    // Use `cache: "no-store"` to stay consistent with force-dynamic.
     const res = await fetch(url, {
       headers: { "User-Agent": "Arena Protocol/1.0" },
-      next: { revalidate: 30 }, // cache 30s
+      cache: "no-store",
     });
 
     if (!res.ok) {
@@ -65,7 +68,7 @@ export async function GET(req: NextRequest) {
     ][] = await res.json();
 
     const candles = raw.map((k) => ({
-      time: Math.floor(k[0] / 1000), // convert ms → seconds for lightweight-charts
+      time: Math.floor(k[0] / 1000), // ms → seconds for lightweight-charts
       open: parseFloat(k[1]),
       high: parseFloat(k[2]),
       low: parseFloat(k[3]),
@@ -73,7 +76,6 @@ export async function GET(req: NextRequest) {
       volume: parseFloat(k[5]),
     }));
 
-    // Current price = last close
     const currentPrice =
       candles.length > 0 ? candles[candles.length - 1].close : null;
     const prevClose =
