@@ -418,8 +418,8 @@ function TradeForm({
 
   const [market, setMarket] = useState("SOL");
   const [side, setSide] = useState<"long" | "short">("long");
-  const [collateral, setCollateral] = useState(50);
-  const [leverage, setLeverage] = useState(2);
+  const [collateral, setCollateral] = useState(0);
+  const [leverage, setLeverage] = useState(5);
   const [takeProfit, setTakeProfit] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [quote, setQuote] = useState<TradeQuote | null>(null);
