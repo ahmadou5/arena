@@ -640,7 +640,7 @@ function TradeForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="font-mono text-[10px] text-[#3d7a5c] uppercase tracking-widest block mb-1.5">
-              Take Profit (USD)
+              Take Profit (USDC)
             </label>
             <input
               type="number"
@@ -652,7 +652,7 @@ function TradeForm({
           </div>
           <div>
             <label className="font-mono text-[10px] text-[#9b3d3d] uppercase tracking-widest block mb-1.5">
-              Stop Loss (USD)
+              Stop Loss (USDC)
             </label>
             <input
               type="number"
