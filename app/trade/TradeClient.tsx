@@ -77,7 +77,7 @@ type TxStatus =
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MARKETS = [
-  { symbol: "SOL", label: "SOL-PERP", collateral: "SOL" },
+  { symbol: "SOL", label: "SOL-PERP", collateral: "USDC" },
   { symbol: "BTC", label: "BTC-PERP", collateral: "USDC" },
   { symbol: "ETH", label: "ETH-PERP", collateral: "USDC" },
   { symbol: "BONK", label: "BONK-PERP", collateral: "USDC" },
