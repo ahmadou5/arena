@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import {
+  Transaction,
+  VersionedTransaction,
+  PublicKey,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import { useAuth } from "@/providers/AuthProvider";
 import ConnectButton from "@/components/ConnectButton";
 import TradingChart from "@/components/TradingChart";
@@ -79,6 +84,14 @@ const MARKETS = [
   { symbol: "JTO", label: "JTO-PERP", collateral: "USDC" },
 ];
 
+// SPL token mint addresses (mainnet)
+const TOKEN_MINTS: Record<string, string> = {
+  USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  BONK: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+  JTO: "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+  // SOL is native — handled separately via getBalance
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtCps(n: number | null) {
@@ -136,6 +149,64 @@ function SectionLabel({
   );
 }
 
+// ── useTokenBalance hook ──────────────────────────────────────────────────────
+// Fetches on-chain wallet balance for SOL or any SPL token.
+// Returns { balance, loading } where balance is in human-readable units.
+
+function useTokenBalance(tokenSymbol: string) {
+  const { connection } = useConnection();
+  const { publicKey } = useWallet();
+  const [balance, setBalance] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchBalance = useCallback(async () => {
+    if (!publicKey) {
+      setBalance(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      if (tokenSymbol === "SOL") {
+        // Native SOL balance
+        const lamports = await connection.getBalance(publicKey);
+        setBalance(lamports / LAMPORTS_PER_SOL);
+      } else {
+        const mintAddress = TOKEN_MINTS[tokenSymbol];
+        if (!mintAddress) {
+          setBalance(null);
+          return;
+        }
+
+        // Find the associated token account for this mint
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+          publicKey,
+          { mint: new PublicKey(mintAddress) },
+        );
+
+        if (tokenAccounts.value.length === 0) {
+          setBalance(0);
+        } else {
+          const amount =
+            tokenAccounts.value[0].account.data.parsed.info.tokenAmount
+              .uiAmount ?? 0;
+          setBalance(amount);
+        }
+      }
+    } catch {
+      setBalance(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [publicKey, connection, tokenSymbol]);
+
+  // Fetch on mount and whenever wallet or token changes
+  useEffect(() => {
+    fetchBalance();
+  }, [fetchBalance]);
+
+  return { balance, loading, refetch: fetchBalance };
+}
+
 // ── Transaction executor ──────────────────────────────────────────────────────
 
 function useTradeTx() {
@@ -182,23 +253,173 @@ function useTradeTx() {
   return { execute };
 }
 
+// ── Balance badge ─────────────────────────────────────────────────────────────
+
+function BalanceBadge({
+  token,
+  onMax,
+}: {
+  token: string;
+  onMax: (amount: number) => void;
+}) {
+  const { balance, loading, refetch } = useTokenBalance(token);
+
+  const handleMax = () => {
+    if (balance === null) return;
+    // Leave a small buffer for SOL to cover tx fees
+    const safeBalance = token === "SOL" ? Math.max(0, balance - 0.01) : balance;
+    onMax(Math.floor(safeBalance * 100) / 100);
+  };
+
+  return (
+    <div className="flex items-center justify-between mb-1.5">
+      <label className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest">
+        Collateral ({token})
+      </label>
+      <div className="flex items-center gap-1.5">
+        {loading ? (
+          <span className="font-mono text-[10px] text-[#b0aea5]">…</span>
+        ) : balance !== null ? (
+          <>
+            <span className="font-mono text-[10px] text-[#8a8880]">
+              Bal:{" "}
+              <span className="text-[#2e3d47] font-semibold">
+                {balance.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: token === "SOL" ? 4 : 2,
+                })}{" "}
+                {token}
+              </span>
+            </span>
+            <button
+              onClick={handleMax}
+              className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 transition-colors"
+              style={{
+                border: "1px solid #dddbd5",
+                color: "#2e3d47",
+                borderRadius: 3,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  "#2e3d47";
+                (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  "transparent";
+                (e.currentTarget as HTMLButtonElement).style.color = "#2e3d47";
+              }}
+            >
+              Max
+            </button>
+            <button
+              onClick={refetch}
+              className="font-mono text-[10px] text-[#b0aea5] hover:text-[#2e3d47] transition-colors leading-none"
+              title="Refresh balance"
+            >
+              ↻
+            </button>
+          </>
+        ) : (
+          <span className="font-mono text-[10px] text-[#b0aea5]">—</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Available margin row ──────────────────────────────────────────────────────
+// Derived from open positions: total collateral locked vs wallet balance
+
+function MarginSummary({
+  openPositions,
+  collateralToken,
+  walletBalance,
+}: {
+  openPositions: OpenPosition[];
+  collateralToken: string;
+  walletBalance: number | null;
+}) {
+  // Sum collateral locked in open positions for this token
+  const locked = openPositions
+    .filter((p) =>
+      collateralToken === "SOL"
+        ? p.side === "long" && p.symbol === "SOL"
+        : p.side === "short" || p.symbol !== "SOL",
+    )
+    .reduce((sum, p) => sum + (p.collateralAmount ?? 0), 0);
+
+  const available =
+    walletBalance !== null ? Math.max(0, walletBalance - locked) : null;
+
+  if (walletBalance === null && locked === 0) return null;
+
+  return (
+    <div
+      className="flex items-center justify-between px-3 py-2"
+      style={{
+        background: "#f7f6f2",
+        border: "1px solid #dddbd5",
+        borderRadius: 4,
+      }}
+    >
+      <div className="flex items-center gap-4">
+        <div>
+          <p className="font-mono text-[9px] text-[#b0aea5] uppercase tracking-widest mb-0.5">
+            Wallet
+          </p>
+          <p className="font-mono text-xs font-semibold text-[#2e3d47]">
+            {walletBalance !== null
+              ? `${walletBalance.toLocaleString("en-US", { maximumFractionDigits: collateralToken === "SOL" ? 4 : 2 })} ${collateralToken}`
+              : "—"}
+          </p>
+        </div>
+        <span className="text-[#dddbd5] text-sm">–</span>
+        <div>
+          <p className="font-mono text-[9px] text-[#b0aea5] uppercase tracking-widest mb-0.5">
+            In Positions
+          </p>
+          <p className="font-mono text-xs font-semibold text-[#9b3d3d]">
+            {locked > 0
+              ? `${locked.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${collateralToken}`
+              : "—"}
+          </p>
+        </div>
+        <span className="text-[#dddbd5] text-sm">=</span>
+        <div>
+          <p className="font-mono text-[9px] text-[#b0aea5] uppercase tracking-widest mb-0.5">
+            Available
+          </p>
+          <p className="font-mono text-xs font-semibold text-[#3d7a5c]">
+            {available !== null
+              ? `${available.toLocaleString("en-US", { maximumFractionDigits: collateralToken === "SOL" ? 4 : 2 })} ${collateralToken}`
+              : "—"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Trade form ────────────────────────────────────────────────────────────────
 
 function TradeForm({
   wallet,
   isGauntlet,
   onMarketChange,
+  openPositions,
 }: {
   wallet: string;
   isGauntlet: boolean;
   onMarketChange?: (m: string) => void;
+  openPositions: OpenPosition[];
 }) {
   const { execute } = useTradeTx();
 
   const [market, setMarket] = useState("SOL");
   const [side, setSide] = useState<"long" | "short">("long");
-  const [collateral, setCollateral] = useState(0);
-  const [leverage, setLeverage] = useState(5);
+  const [collateral, setCollateral] = useState(50);
+  const [leverage, setLeverage] = useState(2);
   const [takeProfit, setTakeProfit] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [quote, setQuote] = useState<TradeQuote | null>(null);
@@ -209,6 +430,9 @@ function TradeForm({
 
   const mkt = MARKETS.find((m) => m.symbol === market) ?? MARKETS[0];
   const collateralToken = side === "short" ? "USDC" : mkt.collateral;
+
+  // Live wallet balance for the current collateral token
+  const { balance: walletBalance } = useTokenBalance(collateralToken);
 
   const fetchQuote = useCallback(async () => {
     setQuote(null);
@@ -285,9 +509,11 @@ function TradeForm({
   const posSize = collateral * leverage;
   const estPnl = posSize * 0.05;
   const estFees = quote?.fee ?? posSize * 0.001;
-  const estHours = 24;
-  const estCps = calculateRAR(estPnl, estFees, collateral, estHours);
+  const estCps = calculateRAR(estPnl, estFees, collateral, 24);
   const finalCps = isGauntlet ? estCps * 1.5 : estCps;
+
+  // Warn if collateral exceeds wallet balance
+  const isOverBalance = walletBalance !== null && collateral > walletBalance;
 
   const isTrading = ["quoting", "signing", "sending"].includes(txStatus);
   const btnLabel =
@@ -358,20 +584,36 @@ function TradeForm({
           </div>
         </div>
 
-        {/* Collateral + Leverage */}
+        {/* Margin summary — wallet / locked / available */}
+        <MarginSummary
+          openPositions={openPositions}
+          collateralToken={collateralToken}
+          walletBalance={walletBalance}
+        />
+
+        {/* Collateral input with live balance + Max button */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest block mb-1.5">
-              Collateral ({collateralToken})
-            </label>
+            <BalanceBadge
+              token={collateralToken}
+              onMax={(amount) => setCollateral(amount)}
+            />
             <input
               type="number"
               min="1"
               step="1"
               value={collateral}
               onChange={(e) => setCollateral(Number(e.target.value))}
-              className="w-full font-mono text-sm px-3 py-2 border border-[#dddbd5] bg-white focus:outline-none focus:border-[#2e3d47] transition-colors"
+              className="w-full font-mono text-sm px-3 py-2 border bg-white focus:outline-none transition-colors"
+              style={{
+                borderColor: isOverBalance ? "#9b3d3d" : "#dddbd5",
+              }}
             />
+            {isOverBalance && (
+              <p className="font-mono text-[9px] text-[#9b3d3d] mt-1">
+                Exceeds wallet balance
+              </p>
+            )}
           </div>
           <div>
             <div className="flex justify-between mb-1.5">
@@ -492,7 +734,7 @@ function TradeForm({
         {/* Submit */}
         <button
           onClick={handleTrade}
-          disabled={isTrading || !quote || !txPending}
+          disabled={isTrading || !quote || !txPending || isOverBalance}
           className={`w-full font-mono text-sm uppercase tracking-widest py-3.5 text-white transition-colors disabled:opacity-40 ${
             side === "long"
               ? "bg-[#3d7a5c] hover:bg-[#4a8a6a]"
@@ -849,12 +1091,10 @@ export default function TradeClient() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Top row: Chart + Trade form */}
-        {/* CHANGED: items-start → lg:items-stretch so both columns share the same height */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 lg:items-stretch">
-          {/* Chart column — flex-col + h-full passes height down to TradingChart */}
+          {/* Chart column */}
           <div className="flex flex-col">
             <SectionLabel>{activeMarket}-PERP · Price Chart</SectionLabel>
-            {/* flex-1 makes the chart fill all remaining column height */}
             <div className="flex-1">
               <TradingChart symbol={activeMarket} />
             </div>
@@ -868,6 +1108,7 @@ export default function TradeClient() {
                 wallet={wallet}
                 isGauntlet={isGauntlet}
                 onMarketChange={setActiveMarket}
+                openPositions={data?.openPositions ?? []}
               />
             ) : (
               <div className="bg-[#2e3d47] p-8 flex flex-col items-center gap-4 text-center">
