@@ -4,6 +4,7 @@ import "./globals.css";
 import { SolanaProvider } from "@/providers/WalletProvider";
 import AuthProvider from "@/providers/AuthProvider";
 import BottomBar from "@/components/BottomBar";
+import { ThemeProvider } from "@/providers/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "Arena Protocol — Competitive Trading Seasons on Solana",
@@ -22,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -31,14 +32,19 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="min-h-screen bg-[#f7f6f2]">
-        <SolanaProvider>
-          <AuthProvider>
-            {/* pb-[44px] — matches BottomBar height so content never hides behind it */}
-            <div className="pb-[44px]">{children}</div>
-            <BottomBar />
-          </AuthProvider>
-        </SolanaProvider>
+      <body
+        className="min-h-screen "
+        style={{ background: "var(--bg)", color: "var(--text)" }}
+      >
+        <ThemeProvider>
+          <SolanaProvider>
+            <AuthProvider>
+              {/* pb-[44px] — matches BottomBar height so content never hides behind it */}
+              <div className="pb-[44px]">{children}</div>
+              <BottomBar />
+            </AuthProvider>
+          </SolanaProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

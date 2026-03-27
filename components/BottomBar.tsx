@@ -1,25 +1,25 @@
 // src/components/BottomBar.tsx
 "use client";
-import { useState, useEffect } from "react";
+import { useSyncExternalStore, useState, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { useSyncExternalStore } from "react";
 
-// A simple store that returns true on the client and false on the server
-const emptySubscribe = () => () => {};
+// Detects client-side mount without setState in an effect.
+// useSyncExternalStore returns false on server, true on client.
 function useIsMounted() {
   return useSyncExternalStore(
-    emptySubscribe,
-    () => true, // Client value
-    () => false, // Server value
+    () => () => {}, // subscribe — no-op, value never changes
+    () => true, // getSnapshot on client
+    () => false, // getServerSnapshot
   );
 }
+
+// ── Theme toggle ───────────────────────────────────────────────────────────
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const isMounted = useIsMounted();
 
-  // Only render after mount to avoid hydration mismatch
   if (!isMounted) return <span className="w-8 h-4" />;
 
   const isDark = resolvedTheme === "dark";
@@ -135,7 +135,7 @@ const SOCIALS = [
     label: "GitHub",
   },
   {
-    href: "https://discord.com/invite/adrena",
+    href: "https://discord.gg/invite/adrena",
     icon: <DiscordIcon />,
     label: "Discord",
   },
@@ -149,8 +149,12 @@ const SOCIALS = [
 export default function BottomBar() {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#dddbd5] px-4 sm:px-6"
-      style={{ height: 44 }}
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#dddbd5] px-4 sm:px-6"
+      style={{
+        height: 44,
+        background: "var(--nav-bg)",
+        borderColor: "var(--border)",
+      }}
     >
       <div className="max-w-6xl mx-auto h-full flex items-center justify-between gap-4">
         {/* Left: branding + nav links */}
@@ -204,6 +208,7 @@ export default function BottomBar() {
               </a>
             ))}
           </div>
+
           <span className="w-px h-3 bg-[#dddbd5]" />
 
           {/* Theme toggle */}

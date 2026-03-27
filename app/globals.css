@@ -1,9 +1,10 @@
 @import "tailwindcss";
+
 @tailwind utilities;
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@300;400;500;600;700;900&display=swap');
 
-/* ── Light mode (default) ───────────────────────────────────────────────── */
+/* ── Light mode (default) ─────────────────────────────────────────────────── */
 :root {
   --primary:       #2e3d47;
   --secondary:     #708090;
@@ -22,11 +23,10 @@
   --gold:          #c8a96e;
   --nav-bg:        #ffffff;
   --input-bg:      #ffffff;
-  --skeleton-from: #f0eeea;
-  --skeleton-to:   #dddbd5;
+  --shadow:        0 1px 3px rgba(0,0,0,0.08);
 }
 
-/* ── Dark mode ──────────────────────────────────────────────────────────── */
+/* ── Dark mode ────────────────────────────────────────────────────────────── */
 html.dark {
   --primary:       #e2e8ee;
   --secondary:     #8a9aaa;
@@ -39,17 +39,16 @@ html.dark {
   --border-strong: #4a6070;
   --text:          #dde4ea;
   --text-muted:    #8a9aaa;
-  --text-dim:      #4a5a68;
+  --text-dim:      #3a4a58;
   --positive:      #4a9a70;
   --negative:      #c05050;
   --gold:          #c8a96e;
   --nav-bg:        #111820;
   --input-bg:      #1a2330;
-  --skeleton-from: #1a2330;
-  --skeleton-to:   #2a3a48;
+  --shadow:        0 1px 3px rgba(0,0,0,0.4);
 }
 
-/* ── Base ───────────────────────────────────────────────────────────────── */
+/* ── Base ─────────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
@@ -60,43 +59,131 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* ── Typography ─────────────────────────────────────────────────────────── */
+/* ── Typography ───────────────────────────────────────────────────────────── */
 .font-display { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; }
 .font-mono    { font-family: 'DM Mono', 'Courier New', monospace; }
 .font-body    { font-family: 'Barlow', sans-serif; }
 
-/* ── Scrollbar ──────────────────────────────────────────────────────────── */
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg-subtle); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--secondary); }
 
-/* ── Skeleton ───────────────────────────────────────────────────────────── */
+/* ── Dark mode element overrides ──────────────────────────────────────────── */
+/* These target actual HTML elements so they work regardless of Tailwind classes */
+
+html.dark body,
+html.dark #__next,
+html.dark main,
+html.dark div,
+html.dark section,
+html.dark aside,
+html.dark header,
+html.dark footer,
+html.dark nav,
+html.dark article {
+  /* Let background inherit from CSS variables — don't override specific colours here */
+  border-color: var(--border);
+}
+
+/* White backgrounds → card bg */
+html.dark .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+/* Page backgrounds */
+html.dark .bg-\[#f7f6f2\],
+html.dark .min-h-screen {
+  background-color: var(--bg) !important;
+}
+
+html.dark .bg-\[#f0eeea\],
+html.dark .bg-\[#f7f6f2\] {
+  background-color: var(--bg-subtle) !important;
+}
+
+/* Dark primary panels — leaderboard header, active season banner etc */
+html.dark .bg-\[#2e3d47\] {
+  background-color: #1a2a38 !important;
+}
+
+/* Nav */
+html.dark nav.bg-white,
+html.dark nav {
+  background-color: var(--nav-bg) !important;
+}
+
+/* Bottom bar */
+html.dark .fixed.bottom-0 {
+  background-color: var(--nav-bg) !important;
+}
+
+/* Borders */
+html.dark .border-\[#dddbd5\] {
+  border-color: var(--border) !important;
+}
+html.dark .border-t,
+html.dark .border-b,
+html.dark .border-l,
+html.dark .border-r,
+html.dark .border {
+  border-color: var(--border);
+}
+html.dark .border-b-2 {
+  border-bottom-color: var(--border-strong) !important;
+}
+
+/* Text */
+html.dark .text-\[#2e3d47\]  { color: var(--text)       !important; }
+html.dark .text-\[#8a8880\]  { color: var(--text-muted) !important; }
+html.dark .text-\[#b0aea5\]  { color: var(--text-dim)   !important; }
+
+/* Inputs, selects */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--input-bg) !important;
+  color:            var(--text)     !important;
+  border-color:     var(--border)   !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--text-dim) !important;
+}
+
+/* Table rows hover */
+html.dark .hover\:bg-\[#f7f6f2\]:hover {
+  background-color: var(--bg-subtle) !important;
+}
+
+/* Divide lines */
+html.dark .divide-\[#dddbd5\] > * {
+  border-color: var(--border) !important;
+}
+
+/* ── Skeleton ─────────────────────────────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position:  400px 0; }
 }
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--skeleton-from) 25%,
-    var(--skeleton-to)   50%,
-    var(--skeleton-from) 75%
-  );
-  background-size: 400px 100%;
+.skeleton,
+html.dark .bg-\[#e8e6e0\] {
+  background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 50%, var(--bg-subtle) 75%) !important;
+  background-size: 400px 100% !important;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 2px;
 }
 
-/* ── Animations ─────────────────────────────────────────────────────────── */
+/* ── Animations ───────────────────────────────────────────────────────────── */
 @keyframes tick {
-  0%  { transform: translateY(0);   opacity: 1; }
+  0%  { transform: translateY(0);    opacity: 1; }
   49% { transform: translateY(-8px); opacity: 0; }
   50% { transform: translateY(8px);  opacity: 0; }
-  100%{ transform: translateY(0);   opacity: 1; }
+  100%{ transform: translateY(0);    opacity: 1; }
 }
 .tick-anim { animation: tick 0.3s ease-in-out; }
 
@@ -106,34 +193,7 @@ body {
 }
 .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
-/* ── Utilities ──────────────────────────────────────────────────────────── */
+/* ── Utilities ────────────────────────────────────────────────────────────── */
 .own-row    { background: var(--primary) !important; color: #fff !important; }
 .own-row td { color: #fff !important; }
 .tab-active { border-bottom: 2px solid var(--primary); color: var(--primary) !important; }
-
-/* ── Dark mode Tailwind class overrides ─────────────────────────────────── */
-/* Cards and panels */
-html.dark .bg-white          { background-color: var(--bg-card) !important; }
-html.dark .bg-\[#f7f6f2\]   { background-color: var(--bg) !important; }
-html.dark .bg-\[#f0eeea\]   { background-color: var(--bg-subtle) !important; }
-html.dark .border-\[#dddbd5\] { border-color: var(--border) !important; }
-
-/* Text colours */
-html.dark .text-\[#2e3d47\]  { color: var(--text) !important; }
-html.dark .text-\[#8a8880\]  { color: var(--text-muted) !important; }
-html.dark .text-\[#b0aea5\]  { color: var(--text-dim) !important; }
-
-/* Inputs */
-html.dark input,
-html.dark select,
-html.dark textarea {
-  background-color: var(--input-bg) !important;
-  color: var(--text) !important;
-  border-color: var(--border) !important;
-}
-
-/* Nav */
-html.dark nav { background-color: var(--nav-bg) !important; }
-
-/* Dark primary bg panels */
-html.dark .bg-\[#2e3d47\] { background-color: #0d1520 !important; }
