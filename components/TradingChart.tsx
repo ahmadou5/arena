@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useTheme } from "next-themes";
 
 interface TradingChartProps {
   symbol: string;
@@ -22,15 +23,55 @@ const INTERVALS = [
   { label: "1d", value: "1D" },
 ];
 
+// ── Theme colours ─────────────────────────────────────────────────────────────
+
+const LIGHT = {
+  tvTheme: "light",
+  bg: "#f7f6f2",
+  bgCard: "#ffffff",
+  border: "#dddbd5",
+  text: "#2e3d47",
+  textMuted: "#8a8880",
+  textDim: "#b0aea5",
+  activeBg: "#2e3d47",
+  activeText: "#ffffff",
+};
+
+const DARK = {
+  tvTheme: "dark",
+  bg: "#0f1519",
+  bgCard: "#1a2330",
+  border: "#2a3a48",
+  text: "#dde4ea",
+  textMuted: "#8a9aaa",
+  textDim: "#3a4a58",
+  activeBg: "#c8a96e",
+  activeText: "#1a2330",
+};
+
+// useSyncExternalStore — detects client mount without setState in effect
+function useIsMounted() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
+
 export default function TradingChart({ symbol }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeInterval, setActiveInterval] = useState("60");
+  const { resolvedTheme } = useTheme();
+  const isMounted = useIsMounted();
 
+  // Use light until mounted (avoids hydration flash)
+  const colors = isMounted && resolvedTheme === "dark" ? DARK : LIGHT;
   const tvSymbol = TV_SYMBOL_MAP[symbol] ?? "BINANCE:SOLUSDT";
 
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Clear any existing widget
     containerRef.current.innerHTML = "";
 
     const script = document.createElement("script");
@@ -43,11 +84,11 @@ export default function TradingChart({ symbol }: TradingChartProps) {
       symbol: tvSymbol,
       interval: activeInterval,
       timezone: "Etc/UTC",
-      theme: "light",
+      theme: colors.tvTheme, // ← "light" or "dark"
       style: "1",
       locale: "en",
-      backgroundColor: "#f7f6f2",
-      gridColor: "#e8e6e0",
+      backgroundColor: colors.bg, // ← matches page bg
+      gridColor: colors.border,
       hide_top_toolbar: false,
       hide_legend: false,
       save_image: false,
@@ -59,33 +100,33 @@ export default function TradingChart({ symbol }: TradingChartProps) {
     containerRef.current.appendChild(script);
 
     return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
-      }
+      if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [tvSymbol, activeInterval]);
+    // Re-render widget when symbol, interval, OR theme changes
+  }, [tvSymbol, activeInterval, colors.tvTheme]);
 
   return (
-    // h-full fills whatever height the parent grid cell gives it
-    // min-h-[320px] keeps it usable on mobile where the grid is single column
     <div
       className="w-full h-full flex flex-col"
       style={{
         minHeight: "clamp(320px, 50vw, 480px)",
-        background: "#f7f6f2",
-        border: "1px solid #dddbd5",
-        //borderRadius: 8,
+        background: colors.bg,
+        border: `1px solid ${colors.border}`,
         overflow: "hidden",
+        transition: "background 0.15s ease, border-color 0.15s ease",
       }}
     >
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-2.5 shrink-0"
-        style={{ borderBottom: "1px solid #dddbd5", background: "#ffffff" }}
+        style={{
+          borderBottom: `1px solid ${colors.border}`,
+          background: colors.bgCard,
+        }}
       >
         <span
           className="font-mono text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "#2e3d47" }}
+          style={{ color: colors.text }}
         >
           {symbol}-PERP · Price Chart
         </span>
@@ -99,8 +140,11 @@ export default function TradingChart({ symbol }: TradingChartProps) {
               style={{
                 borderRadius: 4,
                 background:
-                  activeInterval === iv.value ? "#2e3d47" : "transparent",
-                color: activeInterval === iv.value ? "#ffffff" : "#8a8880",
+                  activeInterval === iv.value ? colors.activeBg : "transparent",
+                color:
+                  activeInterval === iv.value
+                    ? colors.activeText
+                    : colors.textMuted,
               }}
             >
               {iv.label}
@@ -109,24 +153,27 @@ export default function TradingChart({ symbol }: TradingChartProps) {
         </div>
       </div>
 
-      {/* Widget — flex-1 fills all remaining height between header and footer */}
+      {/* TradingView widget */}
       <div
         ref={containerRef}
         className="tradingview-widget-container flex-1"
-        style={{ width: "100%", background: "#f7f6f2" }}
+        style={{ width: "100%", background: colors.bg }}
       />
 
       {/* Footer */}
       <div
         className="flex items-center justify-end px-4 py-1.5 shrink-0"
-        style={{ borderTop: "1px solid #dddbd5", background: "#ffffff" }}
+        style={{
+          borderTop: `1px solid ${colors.border}`,
+          background: colors.bgCard,
+        }}
       >
         <a
           href="https://www.tradingview.com"
           target="_blank"
           rel="noopener noreferrer"
           className="font-mono transition-colors"
-          style={{ fontSize: 9, color: "#b0aea5" }}
+          style={{ fontSize: 9, color: colors.textDim }}
         >
           Powered by TradingView
         </a>

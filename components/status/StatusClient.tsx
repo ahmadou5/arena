@@ -1,6 +1,6 @@
 // src/app/status/StatusClient.tsx
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -30,13 +30,9 @@ interface StatusData {
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 const STATUS_META = {
-  operational: {
-    label: "All Systems Operational",
-    color: "#3d7a5c",
-    dot: "#3d7a5c",
-  },
-  partial: { label: "Partial Degradation", color: "#c8a96e", dot: "#c8a96e" },
-  degraded: { label: "Database Offline", color: "#9b3d3d", dot: "#9b3d3d" },
+  operational: { label: "All Systems Operational", color: "var(--positive)" },
+  partial: { label: "Partial Degradation", color: "var(--gold)" },
+  degraded: { label: "Database Offline", color: "var(--negative)" },
 } as const;
 
 function fmtCount(n: number | null): string {
@@ -56,11 +52,20 @@ function fmtTime(iso: string): string {
 }
 
 function LatencyBadge({ ms }: { ms: number }) {
-  const color = ms < 100 ? "#3d7a5c" : ms < 500 ? "#c8a96e" : "#9b3d3d";
+  const color =
+    ms < 100 ? "var(--positive)" : ms < 500 ? "var(--gold)" : "var(--negative)";
   return (
     <span
       className="font-mono text-[10px] px-1.5 py-0.5 rounded-sm"
-      style={{ color, background: color + "18" }}
+      style={{
+        color,
+        background:
+          color === "var(--positive)"
+            ? "rgba(61,122,92,.1)"
+            : color === "var(--gold)"
+              ? "rgba(200,169,110,.1)"
+              : "rgba(155,61,61,.1)",
+      }}
     >
       {ms}ms
     </span>
@@ -72,8 +77,8 @@ function LatencyBadge({ ms }: { ms: number }) {
 function Skeleton({ w = "100%", h = 12 }: { w?: string | number; h?: number }) {
   return (
     <div
-      className="skeleton rounded-sm animate-pulse bg-[#e8e6e0]"
-      style={{ width: w, height: h }}
+      className="skeleton rounded-sm"
+      style={{ width: w, height: h, background: "var(--bg-subtle)" }}
     />
   );
 }
@@ -81,11 +86,17 @@ function Skeleton({ w = "100%", h = 12 }: { w?: string | number; h?: number }) {
 function LoadingState() {
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-[#dddbd5] p-6 space-y-3">
+      <div
+        className="border p-6 space-y-3"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      >
         <Skeleton w={200} h={16} />
         <Skeleton w={140} h={10} />
       </div>
-      <div className="bg-white border border-[#dddbd5] divide-y divide-[#dddbd5]">
+      <div
+        className="border divide-y"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      >
         {Array.from({ length: 8 }, (_, i) => (
           <div key={i} className="flex items-center justify-between px-5 py-3">
             <Skeleton w={160} h={10} />
@@ -100,39 +111,64 @@ function LoadingState() {
   );
 }
 
+// ── Section label ─────────────────────────────────────────────────────────
+
+function SectionLabel({
+  children,
+  right,
+}: {
+  children: React.ReactNode;
+  right?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-4 mb-3">
+      <span
+        className="font-mono text-[10px] uppercase tracking-widest"
+        style={{ color: "var(--text-muted)" }}
+      >
+        {children}
+      </span>
+      <span className="flex-1 h-px" style={{ background: "var(--border)" }} />
+      {right && (
+        <span
+          className="font-mono text-[10px]"
+          style={{ color: "var(--text-dim)" }}
+        >
+          {right}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────
 
 export default function StatusClient() {
   const [data, setData] = useState<StatusData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState(30);
 
-  const fetchStatus = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await fetch("/api/status", { cache: "no-store" });
-      const d = (await r.json()) as StatusData;
-      setData(d);
-      setLastFetch(new Date());
-      setCountdown(30);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch status");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
+  // ── Fetch pattern: all setState inside .then()/.catch(), never in effect body
+  const runRef = useRef<() => void>(() => {});
+  runRef.current = () => {
+    fetch("/api/status", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: StatusData) => {
+        setData(d);
+        setError(null);
+        setLastFetch(new Date());
+        setCountdown(30);
+      })
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to fetch status"),
+      );
+  };
 
   // Auto-refresh every 30s
   useEffect(() => {
-    const refresh = setInterval(fetchStatus, 30_000);
+    runRef.current();
+    const refresh = setInterval(() => runRef.current(), 30_000);
     const tick = setInterval(
       () => setCountdown((c) => Math.max(0, c - 1)),
       1_000,
@@ -141,37 +177,52 @@ export default function StatusClient() {
       clearInterval(refresh);
       clearInterval(tick);
     };
-  }, [fetchStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const meta = data ? STATUS_META[data.status] : null;
+  const loading = !data && !error;
 
   return (
-    <div className="min-h-screen bg-[#f7f6f2]">
+    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       {/* Nav */}
-      <nav className="bg-white border-b border-[#dddbd5] px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+      <nav
+        className="border-b px-6 py-3 flex items-center justify-between sticky top-0 z-50"
+        style={{ background: "var(--nav-bg)", borderColor: "var(--border)" }}
+      >
         <Link href="/" className="flex items-center gap-3">
           <span
-            className="font-display font-black text-lg tracking-tight text-[#2e3d47]"
-            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+            className="font-display font-black text-lg tracking-tight"
+            style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              color: "var(--text)",
+            }}
           >
             ARENA
           </span>
-          <span className="w-px h-4 bg-[#dddbd5]" />
+          <span className="w-px h-4" style={{ background: "var(--border)" }} />
           <span
-            className="font-display font-light text-lg text-[#8a8880]"
-            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+            className="font-display font-light text-lg"
+            style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              color: "var(--text-muted)",
+            }}
           >
             PROTOCOL
           </span>
         </Link>
         <div className="flex items-center gap-4">
-          <span className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest">
+          <span
+            className="font-mono text-[10px] uppercase tracking-widest"
+            style={{ color: "var(--text-muted)" }}
+          >
             System Status
           </span>
           <button
-            onClick={fetchStatus}
+            onClick={() => runRef.current()}
             disabled={loading}
-            className="font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 border border-[#dddbd5] text-[#8a8880] hover:border-[#2e3d47] hover:text-[#2e3d47] transition-colors disabled:opacity-40"
+            className="font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 border transition-colors disabled:opacity-40"
+            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
           >
             {loading ? "Checking…" : "Refresh"}
           </button>
@@ -183,17 +234,26 @@ export default function StatusClient() {
         <div className="flex items-start justify-between">
           <div>
             <h1
-              className="font-display font-black text-3xl text-[#2e3d47] tracking-tight"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+              className="font-display font-black text-3xl tracking-tight"
+              style={{
+                fontFamily: "'Barlow Condensed', sans-serif",
+                color: "var(--text)",
+              }}
             >
               System Status
             </h1>
-            <p className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest mt-1">
+            <p
+              className="font-mono text-[10px] uppercase tracking-widest mt-1"
+              style={{ color: "var(--text-muted)" }}
+            >
               Auto-refreshes every 30s · Next in {countdown}s
             </p>
           </div>
           {lastFetch && (
-            <span className="font-mono text-[10px] text-[#b0aea5]">
+            <span
+              className="font-mono text-[10px]"
+              style={{ color: "var(--text-dim)" }}
+            >
               Last checked {fmtTime(lastFetch.toISOString())}
             </span>
           )}
@@ -201,14 +261,29 @@ export default function StatusClient() {
 
         {/* Error state */}
         {error && (
-          <div className="bg-white border border-[#9b3d3d] px-5 py-4">
+          <div
+            className="border px-5 py-4"
+            style={{
+              background: "var(--bg-card)",
+              borderColor: "var(--negative)",
+            }}
+          >
             <div className="flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-[#9b3d3d]" />
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: "var(--negative)" }}
+              />
               <div>
-                <p className="font-mono text-xs font-semibold text-[#9b3d3d] uppercase tracking-wider">
+                <p
+                  className="font-mono text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--negative)" }}
+                >
                   Could not reach status API
                 </p>
-                <p className="font-mono text-[10px] text-[#b0aea5] mt-0.5">
+                <p
+                  className="font-mono text-[10px] mt-0.5"
+                  style={{ color: "var(--text-dim)" }}
+                >
                   {error}
                 </p>
               </div>
@@ -216,22 +291,27 @@ export default function StatusClient() {
           </div>
         )}
 
-        {loading && !data ? (
+        {loading ? (
           <LoadingState />
         ) : data ? (
           <>
             {/* Overall status banner */}
             <div
-              className="bg-white border border-[#dddbd5] px-6 py-5"
-              style={{ borderLeftWidth: 4, borderLeftColor: meta!.color }}
+              className="border px-6 py-5"
+              style={{
+                background: "var(--bg-card)",
+                borderColor: "var(--border)",
+                borderLeftWidth: 4,
+                borderLeftColor: meta!.color,
+              }}
             >
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                   <span
                     className="w-2.5 h-2.5 rounded-full"
                     style={{
-                      background: meta!.dot,
-                      boxShadow: `0 0 6px ${meta!.dot}88`,
+                      background: meta!.color,
+                      boxShadow: `0 0 6px ${meta!.color}88`,
                       animation:
                         data.status === "operational"
                           ? "pulse-dot 2s ease-in-out infinite"
@@ -239,7 +319,7 @@ export default function StatusClient() {
                     }}
                   />
                   <span
-                    className="font-display font-bold text-xl text-[#2e3d47]"
+                    className="font-display font-bold text-xl"
                     style={{
                       fontFamily: "'Barlow Condensed', sans-serif",
                       color: meta!.color,
@@ -250,35 +330,51 @@ export default function StatusClient() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="font-mono text-[9px] text-[#b0aea5] uppercase tracking-widest">
+                    <p
+                      className="font-mono text-[9px] uppercase tracking-widest"
+                      style={{ color: "var(--text-dim)" }}
+                    >
                       DB Latency
                     </p>
                     <LatencyBadge ms={data.db.latencyMs} />
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-[9px] text-[#b0aea5] uppercase tracking-widest">
+                    <p
+                      className="font-mono text-[9px] uppercase tracking-widest"
+                      style={{ color: "var(--text-dim)" }}
+                    >
                       Total Check
                     </p>
                     <LatencyBadge ms={data.totalMs} />
                   </div>
                 </div>
               </div>
-
-              {/* DB error */}
               {data.db.error && (
-                <div className="mt-3 pt-3 border-t border-[#dddbd5]">
-                  <p className="font-mono text-[10px] text-[#9b3d3d]">
+                <div
+                  className="mt-3 pt-3 border-t"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <p
+                    className="font-mono text-[10px]"
+                    style={{ color: "var(--negative)" }}
+                  >
                     {data.db.error}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Active Season card */}
+            {/* Active season card */}
             {data.activeSeason ? (
-              <div className="bg-[#2e3d47] px-6 py-4 flex items-center justify-between flex-wrap gap-4">
+              <div
+                className="px-6 py-4 flex items-center justify-between flex-wrap gap-4"
+                style={{ background: "var(--primary)", opacity: 1 }}
+              >
                 <div>
-                  <p className="font-mono text-[9px] text-[#8a9aaa] uppercase tracking-widest">
+                  <p
+                    className="font-mono text-[9px] uppercase tracking-widest"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     Active Season
                   </p>
                   <p
@@ -289,33 +385,52 @@ export default function StatusClient() {
                   </p>
                 </div>
                 <div className="flex gap-6">
-                  <div>
-                    <p className="font-mono text-[9px] text-[#8a9aaa] uppercase tracking-widest">
-                      Started
-                    </p>
-                    <p className="font-mono text-xs text-white">
-                      {new Date(data.activeSeason.startTs).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric", year: "numeric" },
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-[9px] text-[#8a9aaa] uppercase tracking-widest">
-                      Ends
-                    </p>
-                    <p className="font-mono text-xs text-white">
-                      {new Date(data.activeSeason.endTs).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric", year: "numeric" },
-                      )}
-                    </p>
-                  </div>
+                  {[
+                    {
+                      label: "Started",
+                      value: new Date(
+                        data.activeSeason.startTs,
+                      ).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      }),
+                    },
+                    {
+                      label: "Ends",
+                      value: new Date(
+                        data.activeSeason.endTs,
+                      ).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      }),
+                    },
+                  ].map((s) => (
+                    <div key={s.label}>
+                      <p
+                        className="font-mono text-[9px] uppercase tracking-widest"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {s.label}
+                      </p>
+                      <p className="font-mono text-xs text-white">{s.value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
-              <div className="bg-white border border-[#dddbd5] px-5 py-3 flex items-center gap-3">
-                <span className="font-mono text-[10px] text-[#b0aea5] uppercase tracking-widest">
+              <div
+                className="border px-5 py-3"
+                style={{
+                  background: "var(--bg-card)",
+                  borderColor: "var(--border)",
+                }}
+              >
+                <span
+                  className="font-mono text-[10px] uppercase tracking-widest"
+                  style={{ color: "var(--text-dim)" }}
+                >
                   No active season
                 </span>
               </div>
@@ -323,24 +438,29 @@ export default function StatusClient() {
 
             {/* Tables */}
             <div>
-              <div className="flex items-center gap-4 mb-3">
-                <span className="font-mono text-[10px] text-[#8a8880] uppercase tracking-widest">
-                  Database Tables
-                </span>
-                <span className="flex-1 h-px bg-[#dddbd5]" />
-                <span className="font-mono text-[10px] text-[#b0aea5]">
-                  {data.tables.filter((t) => t.error === null).length}/
-                  {data.tables.length} healthy
-                </span>
-              </div>
+              <SectionLabel
+                right={`${data.tables.filter((t) => t.error === null).length}/${data.tables.length} healthy`}
+              >
+                Database Tables
+              </SectionLabel>
 
-              <div className="bg-white border border-[#dddbd5] divide-y divide-[#dddbd5]">
-                {/* Header */}
-                <div className="grid grid-cols-[1fr_80px_80px_100px] px-5 py-2 bg-[#f7f6f2]">
+              <div
+                className="border divide-y"
+                style={{
+                  background: "var(--bg-card)",
+                  borderColor: "var(--border)",
+                }}
+              >
+                {/* Table header */}
+                <div
+                  className="grid grid-cols-[1fr_80px_80px_100px] px-5 py-2"
+                  style={{ background: "var(--bg-subtle)" }}
+                >
                   {["Table", "Rows", "Latency", "Status"].map((h) => (
                     <span
                       key={h}
-                      className="font-mono text-[9px] text-[#8a8880] uppercase tracking-widest"
+                      className="font-mono text-[9px] uppercase tracking-widest"
+                      style={{ color: "var(--text-muted)" }}
                     >
                       {h}
                     </span>
@@ -352,41 +472,47 @@ export default function StatusClient() {
                   return (
                     <div
                       key={table.name}
-                      className="grid grid-cols-[1fr_80px_80px_100px] items-center px-5 py-3 hover:bg-[#f7f6f2] transition-colors"
+                      className="grid grid-cols-[1fr_80px_80px_100px] items-center px-5 py-3 transition-colors"
+                      style={{ borderColor: "var(--border)" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "var(--bg-subtle)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "")
+                      }
                     >
-                      {/* Name */}
-                      <span className="font-mono text-xs text-[#2e3d47] font-medium">
+                      <span
+                        className="font-mono text-xs font-medium"
+                        style={{ color: "var(--text)" }}
+                      >
                         {table.name}
                       </span>
-
-                      {/* Row count */}
-                      <span className="font-mono text-xs text-[#2e3d47]">
+                      <span
+                        className="font-mono text-xs"
+                        style={{ color: "var(--text)" }}
+                      >
                         {fmtCount(table.count)}
                       </span>
-
-                      {/* Latency */}
                       <span>
                         <LatencyBadge ms={table.latencyMs} />
                       </span>
-
-                      {/* Status */}
                       <div className="flex items-center gap-2">
                         <span
                           className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                          style={{ background: ok ? "#3d7a5c" : "#9b3d3d" }}
+                          style={{
+                            background: ok
+                              ? "var(--positive)"
+                              : "var(--negative)",
+                          }}
                         />
-                        {ok ? (
-                          <span className="font-mono text-[10px] text-[#3d7a5c] uppercase tracking-wider">
-                            OK
-                          </span>
-                        ) : (
-                          <span
-                            className="font-mono text-[10px] text-[#9b3d3d] truncate max-w-[72px]"
-                            title={table.error ?? ""}
-                          >
-                            Error
-                          </span>
-                        )}
+                        <span
+                          className="font-mono text-[10px] uppercase tracking-wider"
+                          style={{
+                            color: ok ? "var(--positive)" : "var(--negative)",
+                          }}
+                        >
+                          {ok ? "OK" : "Error"}
+                        </span>
                       </div>
                     </div>
                   );
@@ -394,8 +520,11 @@ export default function StatusClient() {
               </div>
             </div>
 
-            {/* Checked at */}
-            <p className="font-mono text-[10px] text-[#b0aea5] text-center">
+            {/* Footer timestamp */}
+            <p
+              className="font-mono text-[10px] text-center"
+              style={{ color: "var(--text-dim)" }}
+            >
               Snapshot taken at {fmtTime(data.checkedAt)} UTC
             </p>
           </>
