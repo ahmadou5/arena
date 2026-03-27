@@ -2,6 +2,52 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
+import { useSyncExternalStore } from "react";
+
+// A simple store that returns true on the client and false on the server
+const emptySubscribe = () => () => {};
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true, // Client value
+    () => false, // Server value
+  );
+}
+
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isMounted = useIsMounted();
+
+  // Only render after mount to avoid hydration mismatch
+  if (!isMounted) return <span className="w-8 h-4" />;
+
+  const isDark = resolvedTheme === "dark";
+
+  return (
+    <button
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="flex items-center gap-1.5 group"
+      aria-label="Toggle theme"
+    >
+      <div
+        className={`relative w-8 h-4 rounded-full transition-colors duration-200 ${
+          isDark ? "bg-[#c8a96e]" : "bg-[#dddbd5]"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+            isDark ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </div>
+      <span className="font-mono text-[10px] text-[#8a8880] group-hover:text-[#2e3d47] transition-colors uppercase tracking-widest">
+        {isDark ? "🌙" : "☀️"}
+      </span>
+    </button>
+  );
+}
 
 // ── Status dot ─────────────────────────────────────────────────────────────
 
@@ -158,6 +204,10 @@ export default function BottomBar() {
               </a>
             ))}
           </div>
+          <span className="w-px h-3 bg-[#dddbd5]" />
+
+          {/* Theme toggle */}
+          <ThemeToggle />
 
           <span className="w-px h-3 bg-[#dddbd5]" />
 

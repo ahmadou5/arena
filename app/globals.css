@@ -3,28 +3,54 @@
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@300;400;500;600;700;900&display=swap');
 
+/* ── Light mode (default) ───────────────────────────────────────────────── */
 :root {
-  /* Arena Protocol — Modern Minimalist */
-  --primary:   #2e3d47;
-  --secondary: #708090;
-  --accent:    #7a9ab0;
-  --accent-warm: #c8a96e;
-  --bg:        #f7f6f2;
-  --bg-card:   #ffffff;
-  --bg-subtle: #f0eeea;
-  --border:    #dddbd5;
+  --primary:       #2e3d47;
+  --secondary:     #708090;
+  --accent:        #7a9ab0;
+  --accent-warm:   #c8a96e;
+  --bg:            #f7f6f2;
+  --bg-card:       #ffffff;
+  --bg-subtle:     #f0eeea;
+  --border:        #dddbd5;
   --border-strong: #2e3d47;
-  --text:      #2e3d47;
-  --text-muted: #8a8880;
-  --text-dim:  #b0aea5;
-  --positive:  #3d7a5c;
-  --negative:  #9b3d3d;
-  --highlight: #2e3d47;
-  --gold:      #c8a96e;
+  --text:          #2e3d47;
+  --text-muted:    #8a8880;
+  --text-dim:      #b0aea5;
+  --positive:      #3d7a5c;
+  --negative:      #9b3d3d;
+  --gold:          #c8a96e;
+  --nav-bg:        #ffffff;
+  --input-bg:      #ffffff;
+  --skeleton-from: #f0eeea;
+  --skeleton-to:   #dddbd5;
 }
 
-* { box-sizing: border-box; }
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+html.dark {
+  --primary:       #e2e8ee;
+  --secondary:     #8a9aaa;
+  --accent:        #7ab0cc;
+  --accent-warm:   #c8a96e;
+  --bg:            #0f1519;
+  --bg-card:       #1a2330;
+  --bg-subtle:     #141c24;
+  --border:        #2a3a48;
+  --border-strong: #4a6070;
+  --text:          #dde4ea;
+  --text-muted:    #8a9aaa;
+  --text-dim:      #4a5a68;
+  --positive:      #4a9a70;
+  --negative:      #c05050;
+  --gold:          #c8a96e;
+  --nav-bg:        #111820;
+  --input-bg:      #1a2330;
+  --skeleton-from: #1a2330;
+  --skeleton-to:   #2a3a48;
+}
 
+/* ── Base ───────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
 body {
@@ -34,56 +60,80 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-/* Typography system */
-.font-display  { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; }
-.font-mono     { font-family: 'DM Mono', 'Courier New', monospace; }
-.font-body     { font-family: 'Barlow', sans-serif; }
+/* ── Typography ─────────────────────────────────────────────────────────── */
+.font-display { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; }
+.font-mono    { font-family: 'DM Mono', 'Courier New', monospace; }
+.font-body    { font-family: 'Barlow', sans-serif; }
 
-/* Scrollbar */
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg-subtle); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--secondary); }
 
-/* Skeleton animation */
+/* ── Skeleton ───────────────────────────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  100% { background-position:  400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 50%, var(--bg-subtle) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-from) 25%,
+    var(--skeleton-to)   50%,
+    var(--skeleton-from) 75%
+  );
   background-size: 400px 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 2px;
 }
 
-/* Countdown digits */
+/* ── Animations ─────────────────────────────────────────────────────────── */
 @keyframes tick {
-  0%  { transform: translateY(0); opacity: 1; }
+  0%  { transform: translateY(0);   opacity: 1; }
   49% { transform: translateY(-8px); opacity: 0; }
-  50% { transform: translateY(8px); opacity: 0; }
-  100%{ transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(8px);  opacity: 0; }
+  100%{ transform: translateY(0);   opacity: 1; }
 }
 .tick-anim { animation: tick 0.3s ease-in-out; }
 
-/* Pulse for live indicator */
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
+  0%, 100% { opacity: 1;   transform: scale(1);   }
   50%       { opacity: 0.4; transform: scale(0.8); }
 }
 .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
-/* Row highlight */
-.own-row {
-  background: var(--primary) !important;
-  color: #fff !important;
-}
+/* ── Utilities ──────────────────────────────────────────────────────────── */
+.own-row    { background: var(--primary) !important; color: #fff !important; }
 .own-row td { color: #fff !important; }
+.tab-active { border-bottom: 2px solid var(--primary); color: var(--primary) !important; }
 
-/* Tab underline active */
-.tab-active {
-  border-bottom: 2px solid var(--primary);
-  color: var(--primary) !important;
+/* ── Dark mode Tailwind class overrides ─────────────────────────────────── */
+/* Cards and panels */
+html.dark .bg-white          { background-color: var(--bg-card) !important; }
+html.dark .bg-\[#f7f6f2\]   { background-color: var(--bg) !important; }
+html.dark .bg-\[#f0eeea\]   { background-color: var(--bg-subtle) !important; }
+html.dark .border-\[#dddbd5\] { border-color: var(--border) !important; }
+
+/* Text colours */
+html.dark .text-\[#2e3d47\]  { color: var(--text) !important; }
+html.dark .text-\[#8a8880\]  { color: var(--text-muted) !important; }
+html.dark .text-\[#b0aea5\]  { color: var(--text-dim) !important; }
+
+/* Inputs */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--input-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
 }
+
+/* Nav */
+html.dark nav { background-color: var(--nav-bg) !important; }
+
+/* Dark primary bg panels */
+html.dark .bg-\[#2e3d47\] { background-color: #0d1520 !important; }
