@@ -1,16 +1,16 @@
 // src/components/BottomBar.tsx
 "use client";
-import { useSyncExternalStore, useState, useEffect } from "react";
+import { useSyncExternalStore, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 
-// Detects client-side mount without setState in an effect.
-// useSyncExternalStore returns false on server, true on client.
+// ── Hydration guard ────────────────────────────────────────────────────────
+
 function useIsMounted() {
   return useSyncExternalStore(
-    () => () => {}, // subscribe — no-op, value never changes
-    () => true, // getSnapshot on client
-    () => false, // getServerSnapshot
+    () => () => {},
+    () => true,
+    () => false,
   );
 }
 
@@ -19,11 +19,8 @@ function useIsMounted() {
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const isMounted = useIsMounted();
-
   if (!isMounted) return <span className="w-8 h-4" />;
-
   const isDark = resolvedTheme === "dark";
-
   return (
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
@@ -42,14 +39,17 @@ function ThemeToggle() {
           }`}
         />
       </div>
-      <span className="font-mono text-[10px] text-[#8a8880] group-hover:text-[#2e3d47] transition-colors uppercase tracking-widest">
+      <span
+        className="font-mono text-[10px] uppercase tracking-widest transition-colors"
+        style={{ color: "var(--text-muted)" }}
+      >
         {isDark ? "🌙" : "☀️"}
       </span>
     </button>
   );
 }
 
-// ── Status dot ─────────────────────────────────────────────────────────────
+// ── Status pill ────────────────────────────────────────────────────────────
 
 type SystemStatus = "operational" | "partial" | "degraded" | "loading";
 
@@ -62,16 +62,13 @@ const STATUS_META: Record<SystemStatus, { label: string; color: string }> = {
 
 function StatusPill() {
   const [status, setStatus] = useState<SystemStatus>("loading");
-
   useEffect(() => {
     fetch("/api/status", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setStatus(d.status ?? "degraded"))
       .catch(() => setStatus("degraded"));
   }, []);
-
   const meta = STATUS_META[status];
-
   return (
     <Link
       href="/status"
@@ -91,7 +88,7 @@ function StatusPill() {
         }}
       />
       <span
-        className="font-mono text-[10px] uppercase tracking-widest transition-colors group-hover:text-[#2e3d47]"
+        className="font-mono text-[10px] uppercase tracking-widest"
         style={{ color: meta.color }}
       >
         {meta.label}
@@ -109,7 +106,6 @@ function GitHubIcon() {
     </svg>
   );
 }
-
 function DiscordIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -117,7 +113,6 @@ function DiscordIcon() {
     </svg>
   );
 }
-
 function XIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
@@ -126,7 +121,13 @@ function XIcon() {
   );
 }
 
-// ── Bottom bar ─────────────────────────────────────────────────────────────
+// ── Nav links data ─────────────────────────────────────────────────────────
+
+const NAV_LINKS = [
+  { label: "Trade", href: "/trade", internal: true },
+  { label: "Adrena.trade", href: "https://adrena.trade", internal: false },
+  { label: "Scoring Config", href: "/api/config", internal: true },
+] as const;
 
 const SOCIALS = [
   {
@@ -139,62 +140,112 @@ const SOCIALS = [
     icon: <DiscordIcon />,
     label: "Discord",
   },
-  {
-    href: "https://x.com/AdrenaProtocol",
-    icon: <XIcon />,
-    label: "X / Twitter",
-  },
+  { href: "https://x.com/AdrenaProtocol", icon: <XIcon />, label: "X/Twitter" },
 ];
 
-export default function BottomBar() {
-  return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#dddbd5] px-4 sm:px-6"
-      style={{
-        height: 44,
-        background: "var(--nav-bg)",
-        borderColor: "var(--border)",
-      }}
-    >
-      <div className="max-w-6xl mx-auto h-full flex items-center justify-between gap-4">
-        {/* Left: branding + nav links */}
-        <div className="flex items-center gap-5">
-          <Link
-            href="/"
-            className="font-display font-black text-sm text-[#2e3d47] tracking-tight hover:text-[#7a9ab0] transition-colors"
-            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-          >
-            ARENA
-          </Link>
-          <span className="w-px h-3 bg-[#dddbd5]" />
-          <div className="hidden sm:flex items-center gap-4">
-            <Link
-              href="/trade"
-              className="font-mono text-[10px] text-[#8a8880] hover:text-[#2e3d47] uppercase tracking-widest transition-colors"
-            >
-              Trade
-            </Link>
-            <a
-              href="https://adrena.trade"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-[10px] text-[#8a8880] hover:text-[#2e3d47] uppercase tracking-widest transition-colors"
-            >
-              Adrena.trade
-            </a>
-            <Link
-              href="/api/config"
-              className="font-mono text-[10px] text-[#8a8880] hover:text-[#2e3d47] uppercase tracking-widest transition-colors"
-            >
-              Scoring Config
-            </Link>
-          </div>
-        </div>
+// ── Mobile menu dropdown ───────────────────────────────────────────────────
 
-        {/* Right: socials + status */}
-        <div className="flex items-center gap-5">
-          {/* Social icons */}
-          <div className="flex items-center gap-3">
+function MobileMenu() {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative sm:hidden">
+      {/* Hamburger trigger */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex flex-col gap-[4px] p-1.5 transition-opacity hover:opacity-70"
+        aria-label="Open navigation menu"
+        aria-expanded={open}
+      >
+        <span
+          className="block w-4 h-[1.5px] transition-all duration-200"
+          style={{
+            background: "var(--text-muted)",
+            transform: open ? "translateY(5.5px) rotate(45deg)" : "none",
+          }}
+        />
+        <span
+          className="block w-4 h-[1.5px] transition-all duration-200"
+          style={{
+            background: "var(--text-muted)",
+            opacity: open ? 0 : 1,
+          }}
+        />
+        <span
+          className="block w-4 h-[1.5px] transition-all duration-200"
+          style={{
+            background: "var(--text-muted)",
+            transform: open ? "translateY(-5.5px) rotate(-45deg)" : "none",
+          }}
+        />
+      </button>
+
+      {/* Dropdown — opens upward from the bottom bar */}
+      {open && (
+        <div
+          className="absolute bottom-[calc(100%+8px)] left-0 w-44 border shadow-lg z-50"
+          style={{
+            background: "var(--nav-bg)",
+            borderColor: "var(--border)",
+            boxShadow: "0 -4px 20px rgba(0,0,0,0.12)",
+          }}
+        >
+          {/* Nav links */}
+          <div className="py-1">
+            {NAV_LINKS.map((link) =>
+              link.internal ? (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between px-4 py-2.5 font-mono text-[10px] uppercase tracking-widest transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--bg-subtle)")
+                  }
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between px-4 py-2.5 font-mono text-[10px] uppercase tracking-widest transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--bg-subtle)")
+                  }
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                >
+                  {link.label}
+                  <span style={{ color: "var(--text-dim)" }}>↗</span>
+                </a>
+              ),
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="h-px mx-3" style={{ background: "var(--border)" }} />
+
+          {/* Socials */}
+          <div className="flex items-center gap-3 px-4 py-2.5">
             {SOCIALS.map((s) => (
               <a
                 key={s.label}
@@ -202,21 +253,109 @@ export default function BottomBar() {
                 target="_blank"
                 rel="noopener noreferrer"
                 title={s.label}
-                className="text-[#8a8880] hover:text-[#2e3d47] transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLElement).style.color = "var(--text)")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLElement).style.color =
+                    "var(--text-muted)")
+                }
+              >
+                {s.icon}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Bottom bar ─────────────────────────────────────────────────────────────
+
+export default function BottomBar() {
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 border-t px-4 sm:px-6"
+      style={{
+        height: 44,
+        background: "var(--nav-bg)",
+        borderColor: "var(--border)",
+      }}
+    >
+      <div className="max-w-6xl mx-auto h-full flex items-center justify-between gap-4">
+        {/* Left: branding */}
+        <div className="flex items-center gap-5">
+          <Link
+            href="/"
+            className="font-display font-black text-sm tracking-tight transition-colors"
+            style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              color: "var(--text)",
+            }}
+          >
+            ARENA
+          </Link>
+
+          {/* Desktop nav links */}
+          <span
+            className="hidden sm:block w-px h-3"
+            style={{ background: "var(--border)" }}
+          />
+          <div className="hidden sm:flex items-center gap-4">
+            {NAV_LINKS.map((link) =>
+              link.internal ? (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="font-mono text-[10px] uppercase tracking-widest transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-[10px] uppercase tracking-widest transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {link.label}
+                </a>
+              ),
+            )}
+          </div>
+
+          {/* Mobile hamburger */}
+          <MobileMenu />
+        </div>
+
+        {/* Right: socials (desktop only) + theme toggle + status */}
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-3">
+            {SOCIALS.map((s) => (
+              <a
+                key={s.label}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={s.label}
+                style={{ color: "var(--text-muted)" }}
               >
                 {s.icon}
               </a>
             ))}
           </div>
 
-          <span className="w-px h-3 bg-[#dddbd5]" />
-
-          {/* Theme toggle */}
+          <span
+            className="hidden sm:block w-px h-3"
+            style={{ background: "var(--border)" }}
+          />
           <ThemeToggle />
-
-          <span className="w-px h-3 bg-[#dddbd5]" />
-
-          {/* Status pill */}
+          <span className="w-px h-3" style={{ background: "var(--border)" }} />
           <StatusPill />
         </div>
       </div>
