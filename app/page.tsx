@@ -51,8 +51,11 @@ interface MidSeasonData {
 // ── Server data fetching ───────────────────────────────────────────────────
 
 async function fetchActiveSeason(): Promise<SeasonData | null> {
+  console.log("Fetching season22");
   try {
+    const user = await prisma.season.count({ where: { isActive: true } });
     const season = await prisma.season.findFirst({ where: { isActive: true } });
+    console.log(season, user, "Season");
     if (!season) return null;
     const day = getSeasonDay(season);
     return {
@@ -74,7 +77,7 @@ async function fetchActiveSeason(): Promise<SeasonData | null> {
 }
 
 async function fetchAllDivisions(
-  seasonNumber: number,
+  seasonNumber: number
 ): Promise<DivisionGroup[]> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   try {
@@ -89,13 +92,13 @@ async function fetchAllDivisions(
 }
 
 async function fetchMidSeason(
-  seasonNumber: number,
+  seasonNumber: number
 ): Promise<MidSeasonData | null> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   try {
     const r = await fetch(
       `${base}/api/leaderboard/${seasonNumber}/mid-season-event`,
-      { next: { revalidate: 60 } },
+      { next: { revalidate: 60 } }
     );
     const d = await r.json();
     return d.ok ? d : null;
