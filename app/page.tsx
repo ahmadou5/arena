@@ -53,9 +53,8 @@ interface MidSeasonData {
 async function fetchActiveSeason(): Promise<SeasonData | null> {
   console.log("Fetching season22");
   try {
-    const user = await prisma.season.count({ where: { isActive: true } });
     const season = await prisma.season.findFirst({ where: { isActive: true } });
-    console.log(season, user, "Season");
+
     if (!season) return null;
     const day = getSeasonDay(season);
     return {
